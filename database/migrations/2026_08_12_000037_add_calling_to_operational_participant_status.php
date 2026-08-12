@@ -26,9 +26,7 @@ return new class extends Migration
             return;
         }
 
-        $clause = DB::getDriverName() === 'mysql'
-            ? 'DROP CHECK event_participants_status_check'
-            : 'DROP CONSTRAINT event_participants_status_check';
+        $clause = 'DROP CONSTRAINT event_participants_status_check';
         DB::statement("ALTER TABLE event_participants {$clause}");
 
         $values = implode(', ', array_map(

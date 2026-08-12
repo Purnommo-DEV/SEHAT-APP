@@ -172,7 +172,7 @@ return new class extends Migration
 
         foreach ($this->checks as $table => $constraints) {
             foreach (array_keys($constraints) as $name) {
-                $clause = $driver === 'mysql' ? "DROP CHECK {$name}" : "DROP CONSTRAINT {$name}";
+                $clause = "DROP CONSTRAINT {$name}";
                 DB::statement("ALTER TABLE {$table} {$clause}");
             }
         }

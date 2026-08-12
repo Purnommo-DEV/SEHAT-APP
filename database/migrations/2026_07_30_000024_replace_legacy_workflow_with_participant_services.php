@@ -261,7 +261,7 @@ return new class extends Migration
 
     private function dropCheck(string $table, string $name): void
     {
-        $clause = DB::getDriverName() === 'mysql' ? "DROP CHECK {$name}" : "DROP CONSTRAINT {$name}";
+        $clause = "DROP CONSTRAINT {$name}";
         DB::statement("ALTER TABLE {$table} {$clause}");
     }
 
