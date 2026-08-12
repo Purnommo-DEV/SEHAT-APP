@@ -19,6 +19,8 @@
             </div>
         </section>
 
+        @include('operations.partials.waiting-lanes', ['showControls' => true])
+
         <section class="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm sm:p-6" aria-label="Kapasitas donor per gender">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -79,6 +81,5 @@
             <div role="alert" class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">{{ $errors->first() }}</div>
         @endif
 
-        @include('operations.partials.waiting-lanes', ['showControls' => true])
     </div>
 @endsection

@@ -18,7 +18,7 @@ enum ParticipantServiceType: string
     public function description(): string
     {
         return match ($this) {
-            self::Donor => 'Mengikuti tahap menunggu, cek kesehatan, lalu proses donor.',
+            self::Donor => 'Langsung ke cek kelayakan donor; pemeriksaan kesehatan dilakukan lebih dahulu bila juga dipilih.',
             self::HealthCheck => 'Mengikuti alur pemeriksaan kesehatan tanpa form medis.',
         };
     }
@@ -39,6 +39,7 @@ enum ParticipantServiceType: string
         return match ($this) {
             self::Donor => [
                 ServicePostBehavior::HealthForm,
+                ServicePostBehavior::ScreeningForm,
                 ServicePostBehavior::DonationForm,
             ],
             self::HealthCheck => [

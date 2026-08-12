@@ -68,8 +68,8 @@ class ServiceQueueController extends Controller
         $queueTicket->loadMissing('eventParticipant.participant');
         $lane = $request->enum('queue_lane', ParticipantGender::class);
 
-        if (! $lane instanceof ParticipantGender
-            || $queueTicket->eventParticipant->participant->gender !== $lane
+        if ($lane instanceof ParticipantGender
+            && $queueTicket->eventParticipant->participant->gender !== $lane
         ) {
             throw ValidationException::withMessages([
                 'queue_ticket' => 'Peserta yang dipilih bukan bagian dari jalur antrean yang dipilih.',

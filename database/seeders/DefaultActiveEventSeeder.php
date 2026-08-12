@@ -91,6 +91,15 @@ class DefaultActiveEventSeeder extends Seeder
         );
         $this->ensureServicePost(
             event: $event,
+            code: 'pos-kelayakan-donor',
+            name: 'Pos Cek Kelayakan Donor',
+            description: 'Pos keputusan kelayakan donor sebelum menggunakan kapasitas bed.',
+            type: ServicePostType::Screening,
+            behavior: ServicePostBehavior::ScreeningForm,
+            queuePrefix: 'K',
+        );
+        $this->ensureServicePost(
+            event: $event,
             code: 'pos-donor',
             name: 'Pos Donor',
             description: 'Pos proses donor untuk peserta Event Demo.',
@@ -154,7 +163,6 @@ class DefaultActiveEventSeeder extends Seeder
             ['gender' => ParticipantGender::Male, 'label' => 'Peserta Laki'],
             ['gender' => ParticipantGender::Female, 'label' => 'Peserta Perempuan'],
         ] as $definition) {
-            /** @var ParticipantGender $gender */
             $gender = $definition['gender'];
             $label = $definition['label'];
 

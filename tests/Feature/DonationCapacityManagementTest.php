@@ -118,7 +118,7 @@ class DonationCapacityManagementTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $workflow->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $workflow->startEligibility($event, $registration->eventParticipant, $actor);
             $workflow->startDonation($event, $registration->eventParticipant, $actor);
         }
 
@@ -154,9 +154,15 @@ class DonationCapacityManagementTest extends TestCase
             'is_active' => true,
         ]);
         ServicePost::factory()->for($event)->create([
+            'type' => ServicePostType::Screening,
+            'behavior' => ServicePostBehavior::ScreeningForm,
+            'sequence' => 2,
+            'is_active' => true,
+        ]);
+        ServicePost::factory()->for($event)->create([
             'type' => ServicePostType::Donation,
             'behavior' => ServicePostBehavior::DonationForm,
-            'sequence' => 2,
+            'sequence' => 3,
             'is_active' => true,
         ]);
 

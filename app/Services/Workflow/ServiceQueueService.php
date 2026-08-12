@@ -43,25 +43,45 @@ class ServiceQueueService
     public function ticketsForPost(Event $event, ServicePost $servicePost): Collection
     {
         $relations = [
-            'event.settings',
-            'eventParticipant.participant',
-            'eventParticipant.services',
-            'servicePost',
-            'calledBy',
+            'event:id',
+            'event.settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits',
+            'eventParticipant:id,event_id,participant_id,registration_number,registration_order,status',
+            'eventParticipant.participant:id,name,phone,gender',
+            'eventParticipant.services:id,event_participant_id,service',
+            'calledBy:id,name',
+        ];
+        $ticketColumns = [
+            'queue_tickets.id',
+            'queue_tickets.event_id',
+            'queue_tickets.event_participant_id',
+            'queue_tickets.service_post_id',
+            'queue_tickets.queue_type',
+            'queue_tickets.number',
+            'queue_tickets.status',
+            'queue_tickets.called_at',
+            'queue_tickets.served_at',
+            'queue_tickets.skipped_at',
+            'queue_tickets.finished_at',
+            'queue_tickets.called_by',
         ];
 
         $active = QueueTicket::query()
-            ->where('event_id', $event->id)
-            ->where('service_post_id', $servicePost->id)
-            ->whereNotIn('status', [
+            ->select($ticketColumns)
+            ->join('event_participants', 'event_participants.id', '=', 'queue_tickets.event_participant_id')
+            ->where('queue_tickets.event_id', $event->id)
+            ->where('queue_tickets.service_post_id', $servicePost->id)
+            ->whereNotIn('queue_tickets.status', [
                 QueueTicketStatus::Finished->value,
                 QueueTicketStatus::Cancelled->value,
             ])
             ->with($relations)
-            ->orderByRaw("case status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
-            ->orderBy('number')
+            ->orderByRaw("case queue_tickets.status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
+            ->orderBy('event_participants.registration_order')
+            ->orderBy('event_participants.checked_in_at')
+            ->orderBy('event_participants.id')
             ->get();
         $finished = QueueTicket::query()
+            ->select($ticketColumns)
             ->where('event_id', $event->id)
             ->where('service_post_id', $servicePost->id)
             ->whereIn('status', [
@@ -117,8 +137,8 @@ class ServiceQueueService
                 $ticket->called_at = now();
                 $ticket->called_by = $actor?->id;
             },
-            function (Event $event, ServicePost $post, QueueTicket $ticket, EventParticipant $participant): void {
-                $this->ensureNoOtherActiveCallInLane($event, $post, $ticket, $participant);
+            function (Event $event, ServicePost $post, QueueTicket $ticket): void {
+                $this->ensureNoOtherActiveCall($event, $post, $ticket);
             },
             function (EventParticipant $participant) use ($actor): void {
                 $previousStatus = $participant->status;
@@ -134,6 +154,63 @@ class ServiceQueueService
                 $this->recordParticipantTransition($participant, $previousStatus, $actor);
             },
         );
+    }
+
+    public function callNextWaiting(Event $event, ServicePost $servicePost, ?User $actor): QueueTicket
+    {
+        $updatedTicket = $this->database->transaction(function () use ($event, $servicePost, $actor): QueueTicket {
+            $lockedEvent = $this->lockActiveEvent($event);
+            $lockedPost = ServicePost::query()
+                ->where('event_id', $lockedEvent->id)
+                ->whereKey($servicePost->id)
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->ensureNoOtherActiveCall($lockedEvent, $lockedPost);
+
+            $nextTicket = QueueTicket::query()
+                ->select('queue_tickets.*')
+                ->join('event_participants', 'event_participants.id', '=', 'queue_tickets.event_participant_id')
+                ->where('queue_tickets.event_id', $lockedEvent->id)
+                ->where('queue_tickets.service_post_id', $lockedPost->id)
+                ->where('queue_tickets.status', QueueTicketStatus::Waiting->value)
+                ->where('event_participants.status', ParticipantStatus::Waiting->value)
+                ->orderBy('event_participants.registration_order')
+                ->orderBy('event_participants.checked_in_at')
+                ->orderBy('event_participants.id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $nextTicket instanceof QueueTicket) {
+                throw ValidationException::withMessages([
+                    'queue_ticket' => 'Belum ada peserta menunggu yang dapat dipanggil.',
+                ]);
+            }
+
+            $participant = EventParticipant::query()
+                ->where('event_id', $lockedEvent->id)
+                ->whereKey($nextTicket->event_participant_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $oldValues = $this->ticketSnapshot($nextTicket);
+            $previousStatus = $participant->status;
+
+            $this->queueStateMachine->transition($nextTicket, QueueTicketStatus::Calling);
+            $nextTicket->called_at = now();
+            $nextTicket->called_by = $actor?->id;
+            $nextTicket->save();
+            $this->participantStateMachine->transition($participant, ParticipantStatus::Calling);
+            $participant->save();
+            $this->recordParticipantTransition($participant, $previousStatus, $actor);
+            $this->writeTicketAudit($nextTicket, $actor, AuditAction::QueueTicketCalled, $oldValues);
+
+            return $nextTicket;
+        });
+
+        $this->broadcast($updatedTicket, AuditAction::QueueTicketCalled);
+
+        return $updatedTicket;
     }
 
     public function skip(Event $event, ServicePost $servicePost, QueueTicket $queueTicket, ?User $actor): QueueTicket
@@ -514,28 +591,21 @@ class ServiceQueueService
         return [$lockedPost, $lockedTicket, $participant];
     }
 
-    private function ensureNoOtherActiveCallInLane(
+    private function ensureNoOtherActiveCall(
         Event $event,
         ServicePost $servicePost,
-        QueueTicket $queueTicket,
-        EventParticipant $participant,
+        ?QueueTicket $queueTicket = null,
     ): void {
-        $participant->loadMissing('participant');
-
         $hasActiveCall = QueueTicket::query()
             ->where('event_id', $event->id)
             ->where('service_post_id', $servicePost->id)
-            ->where('id', '!=', $queueTicket->id)
+            ->when($queueTicket instanceof QueueTicket, fn ($query) => $query->where('id', '!=', $queueTicket->id))
             ->where('status', QueueTicketStatus::Calling->value)
-            ->whereHas(
-                'eventParticipant.participant',
-                fn ($query) => $query->where('gender', $participant->participant->gender->value),
-            )
             ->exists();
 
         if ($hasActiveCall) {
             throw ValidationException::withMessages([
-                'queue_ticket' => 'Masih ada nomor pada jalur gender ini yang sedang dipanggil.',
+                'queue_ticket' => 'Masih ada peserta yang sedang dipanggil.',
             ]);
         }
     }

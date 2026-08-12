@@ -184,7 +184,10 @@ class DonationCapacityService
 
     private function ensureActive(Event $event): void
     {
-        $active = Event::query()->whereKey($event->id)->firstOrFail();
+        $active = Event::query()
+            ->select(['id', 'status', 'active_marker'])
+            ->whereKey($event->id)
+            ->firstOrFail();
 
         if ($active->status !== EventStatus::Active || $active->active_marker !== 'active') {
             throw ValidationException::withMessages([
@@ -196,7 +199,10 @@ class DonationCapacityService
     private function settingsFor(Event $event): EventSetting
     {
         /** @var EventSetting $settings */
-        $settings = EventSetting::query()->where('event_id', $event->id)->firstOrFail();
+        $settings = EventSetting::query()
+            ->select(['id', 'event_id', 'donation_capacity_male', 'donation_capacity_female'])
+            ->where('event_id', $event->id)
+            ->firstOrFail();
 
         return $settings;
     }

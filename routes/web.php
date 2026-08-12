@@ -70,7 +70,7 @@ Route::middleware('throttle:operational')->group(function (): void {
     Route::get('/operations/waiting/desk', [ActiveOperationalController::class, 'waitingDesk'])
         ->name('operations.waiting.desk');
     Route::get('/operations/{stage}', ActiveOperationalController::class)
-        ->whereIn('stage', ['waiting', 'health-check', 'before-donor', 'donating', 'completed'])
+        ->whereIn('stage', ['waiting', 'health-check', 'eligibility', 'before-donor', 'donating', 'completed'])
         ->name('operations.stage');
     Route::get('/my-queue', ActiveServiceQueueController::class)->name('queues.active');
     Route::get('/monitor', ActiveMonitorController::class)->name('monitor.active');
@@ -94,15 +94,23 @@ Route::middleware('throttle:operational')->group(function (): void {
                 ->name('waiting.snapshot');
             Route::get('/waiting/desk', [OperationalWorkflowController::class, 'waitingDesk'])
                 ->name('waiting.desk');
+            Route::post('/waiting/next', [OperationalWorkflowController::class, 'next'])
+                ->name('waiting.next');
             Route::get('/health-check', [OperationalWorkflowController::class, 'healthCheck'])->name('health-check');
             Route::get('/before-donor', [OperationalWorkflowController::class, 'beforeDonation'])->name('before-donor');
             Route::get('/donating', [OperationalWorkflowController::class, 'donating'])->name('donating');
             Route::get('/completed', [OperationalWorkflowController::class, 'completed'])->name('completed');
             Route::get('/data/{stage}', [OperationalWorkflowController::class, 'data'])
-                ->whereIn('stage', ['waiting', 'calling', 'health_check', 'donating', 'finished'])
+                ->whereIn('stage', ['waiting', 'calling', 'health_check', 'waiting_screening', 'donating', 'finished'])
                 ->name('data');
             Route::post('/{eventParticipant}/health-check', [OperationalWorkflowController::class, 'startHealthCheck'])
                 ->name('health-check.start');
+            Route::post('/{eventParticipant}/eligibility', [OperationalWorkflowController::class, 'startEligibility'])
+                ->name('eligibility.start');
+            Route::post('/{eventParticipant}/eligibility/eligible', [OperationalWorkflowController::class, 'markEligible'])
+                ->name('eligibility.eligible');
+            Route::post('/{eventParticipant}/eligibility/ineligible', [OperationalWorkflowController::class, 'markIneligible'])
+                ->name('eligibility.ineligible');
             Route::post('/{eventParticipant}/donate', [OperationalWorkflowController::class, 'startDonation'])
                 ->name('donating.start');
             Route::post('/{eventParticipant}/complete', [OperationalWorkflowController::class, 'complete'])

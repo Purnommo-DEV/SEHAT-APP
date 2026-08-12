@@ -109,6 +109,7 @@ class WorkflowDefinitionService
     private function activePosts(Event $event, bool $lock = false): Collection
     {
         return ServicePost::query()
+            ->select(['id', 'event_id', 'behavior', 'sequence'])
             ->where('event_id', $event->id)
             ->where('is_active', true)
             ->orderBy('sequence')

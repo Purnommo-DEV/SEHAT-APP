@@ -123,15 +123,23 @@
                                 <button
                                     type="button"
                                     @click="select(participant)"
+                                    :disabled="participant.registration?.is_available === false"
                                     class="flex w-full items-center justify-between gap-4 rounded-xl border px-4 py-3 text-left transition"
                                     :class="[
-                                        $store.ui.genderCardClass(participant.gender),
-                                        activeSuggestionIndex === suggestions.indexOf(participant) ? 'ring-2 ring-emerald-400' : '',
+                                        participant.registration?.is_available === false
+                                            ? 'cursor-not-allowed border-slate-200 bg-slate-100 opacity-65 grayscale'
+                                            : $store.ui.genderCardClass(participant.gender),
+                                        activeSuggestionIndex === suggestions.indexOf(participant) && participant.registration?.is_available !== false ? 'ring-2 ring-emerald-400' : '',
                                     ]"
                                 >
                                     <span class="min-w-0">
                                         <span class="block truncate font-bold text-slate-800" x-text="participant.name"></span>
                                         <span class="mt-1 block truncate text-xs text-slate-500" x-text="[participant.phone, participant.nik].filter(Boolean).join(' · ')"></span>
+                                        <span x-show="participant.registration?.is_registered" class="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-[0.7rem] font-black text-slate-700">
+                                            <span x-show="participant.registration?.is_finished">✓ SELESAI</span>
+                                            <span x-show="! participant.registration?.is_finished">SUDAH TERDAFTAR</span>
+                                            <span x-show="participant.registration?.registration_number" x-text="participant.registration?.registration_number"></span>
+                                        </span>
                                     </span>
                                     <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold" :class="$store.ui.genderBadgeClass(participant.gender)">
                                         <span x-text="$store.ui.genderIcon(participant.gender)"></span>
@@ -200,7 +208,7 @@
                     <button
                         id="check-in-submit"
                         type="submit"
-                        :disabled="! selected || submitting || ! eventActive || ! hasAvailableService || selectedServices.length === 0"
+                        :disabled="! selected || selected?.registration?.is_available === false || submitting || ! eventActive || ! hasAvailableService || selectedServices.length === 0"
                         class="btn sticky bottom-3 z-10 h-13 w-full border-0 bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:bg-slate-300 sm:static"
                     >
                         <span x-show="submitting" class="loading loading-spinner loading-sm"></span>
@@ -230,12 +238,14 @@
 
                 <ol x-show="tickets.length > 0" x-cloak class="max-h-[35rem] divide-y divide-slate-100 overflow-y-auto">
                     <template x-for="ticket in tickets" :key="ticket.id">
-                        <li class="border-l-4" :class="$store.ui.genderCardClass(ticket.participant.gender)">
+                        <li class="border-l-4" :class="ticket.is_finished ? 'border-slate-200 bg-slate-50 opacity-65 grayscale' : $store.ui.genderCardClass(ticket.participant.gender)">
                             <a :href="ticket.urls.show" class="flex items-center gap-4 px-4 py-4 transition hover:brightness-[0.98] sm:px-5">
-                                <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl font-mono text-xl font-black shadow-lg" :class="$store.ui.genderNumberClass(ticket.participant.gender)" x-text="ticket.registration_number"></span>
+                                <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl font-mono text-xl font-black shadow-lg" :class="ticket.is_finished ? 'bg-slate-200 text-slate-600' : $store.ui.genderNumberClass(ticket.participant.gender)" x-text="ticket.registration_number"></span>
                                 <span class="min-w-0">
                                     <span class="block truncate font-bold text-slate-900" x-text="ticket.participant.name"></span>
                                     <span class="mt-1 block truncate text-xs text-slate-500" x-text="ticket.services.map(service => service.label).join(' + ')"></span>
+                                    <span x-show="ticket.is_finished" class="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-[0.7rem] font-black text-slate-700">✓ SELESAI</span>
+                                    <span x-show="! ticket.is_finished" class="mt-2 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[0.7rem] font-black text-sky-700" x-text="ticket.participant_status_label"></span>
                                     <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[0.7rem] font-bold" :class="$store.ui.genderBadgeClass(ticket.participant.gender)">
                                         <span class="mr-1" x-text="$store.ui.genderIcon(ticket.participant.gender)"></span>
                                         <span x-text="ticket.participant.gender_label"></span>

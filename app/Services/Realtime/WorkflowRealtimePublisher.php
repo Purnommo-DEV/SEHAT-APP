@@ -216,6 +216,66 @@ class WorkflowRealtimePublisher
         );
     }
 
+    public function operationalMovedToEligibility(EventParticipant $participant, ?int $servicePostId): void
+    {
+        ParticipantMovedToEligibility::dispatch(
+            $participant->event_id,
+            $participant->id,
+            null,
+            $servicePostId,
+        );
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ParticipantEligibilityStarted,
+            $participant->id,
+            null,
+            $servicePostId,
+        );
+    }
+
+    public function operationalEligible(EventParticipant $participant, QueueTicket $ticket): void
+    {
+        ParticipantEligible::dispatch(
+            $participant->event_id,
+            $participant->id,
+            $ticket->id,
+            $ticket->service_post_id,
+        );
+        ParticipantMovedToDonation::dispatch(
+            $participant->event_id,
+            $participant->id,
+            $ticket->id,
+            $ticket->service_post_id,
+        );
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ScreeningEligible,
+            $participant->id,
+            $ticket->id,
+            $ticket->service_post_id,
+        );
+    }
+
+    public function operationalIneligible(EventParticipant $participant): void
+    {
+        ParticipantIneligible::dispatch(
+            $participant->event_id,
+            $participant->id,
+            null,
+            null,
+        );
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ScreeningNotEligible,
+            $participant->id,
+            null,
+            null,
+        );
+    }
+
     public function operationalCompleted(EventParticipant $participant, ?QueueTicket $ticket = null): void
     {
         if ($ticket === null) {

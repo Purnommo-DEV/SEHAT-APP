@@ -28,7 +28,8 @@ class OperationalParticipantResource extends JsonResource
             'id' => $this->id,
             'number' => $this->formattedRegistrationNumber($this->event->settings) ?? '-',
             'registration_number' => $this->formattedRegistrationNumber($this->event->settings),
-            'sort_number' => $this->registration_number,
+            'registration_order' => $this->registration_order,
+            'sort_number' => $this->registration_order,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'position' => [
@@ -39,6 +40,7 @@ class OperationalParticipantResource extends JsonResource
                 'is_active' => in_array($this->status, [
                     ParticipantStatus::Calling,
                     ParticipantStatus::HealthCheck,
+                    ParticipantStatus::WaitingScreening,
                     ParticipantStatus::Donating,
                 ], true),
                 'status_label' => $this->status === ParticipantStatus::Calling
@@ -61,13 +63,20 @@ class OperationalParticipantResource extends JsonResource
                 ->values()
                 ->all(),
             'can_start_health_check' => $this->status === ParticipantStatus::Calling && $hasHealthService,
-            'can_donate' => ($this->status === ParticipantStatus::Calling && $hasDonorService && ! $hasHealthService)
-                || ($this->status === ParticipantStatus::HealthCheck && $hasDonorService),
-            'can_complete_before_donation' => $this->status === ParticipantStatus::HealthCheck,
+            'can_start_eligibility' => $hasDonorService && (
+                $this->status === ParticipantStatus::HealthCheck
+                || ($this->status === ParticipantStatus::Calling && ! $hasHealthService)
+            ),
+            'can_decide_eligibility' => $this->status === ParticipantStatus::WaitingScreening && $hasDonorService,
+            'can_donate' => $this->status === ParticipantStatus::WaitingScreening && $hasDonorService,
+            'can_complete_before_donation' => $this->status === ParticipantStatus::HealthCheck && ! $hasDonorService,
             'can_complete_health_only' => $this->status === ParticipantStatus::HealthCheck && ! $hasDonorService,
             'urls' => [
                 'health_check' => route('events.operations.health-check.start', [$this->event_id, $this->resource]),
-                'donate' => route('events.operations.donating.start', [$this->event_id, $this->resource]),
+                'eligibility' => route('events.operations.eligibility.start', [$this->event_id, $this->resource]),
+                'eligible' => route('events.operations.eligibility.eligible', [$this->event_id, $this->resource]),
+                'ineligible' => route('events.operations.eligibility.ineligible', [$this->event_id, $this->resource]),
+                'donate' => route('events.operations.eligibility.eligible', [$this->event_id, $this->resource]),
                 'complete' => route('events.operations.completed.store', [$this->event_id, $this->resource]),
                 'complete_before_donation' => route('events.operations.health-check.complete', [$this->event_id, $this->resource]),
                 'complete_health_only' => route('events.operations.health-check.complete', [$this->event_id, $this->resource]),
@@ -78,8 +87,11 @@ class OperationalParticipantResource extends JsonResource
     private function calledTargetLabel(bool $hasDonorService, bool $hasHealthService): string
     {
         return match ($this->status) {
-            ParticipantStatus::Calling => $hasHealthService ? 'Cek Kesehatan' : 'Donor',
+            ParticipantStatus::Calling => $hasDonorService && ! $hasHealthService
+                ? 'Cek Kelayakan Donor'
+                : 'Cek Kesehatan',
             ParticipantStatus::HealthCheck => 'Cek Kesehatan',
+            ParticipantStatus::WaitingScreening => 'Cek Kelayakan Donor',
             ParticipantStatus::Donating => 'Donor',
             ParticipantStatus::Finished => 'Selesai',
             default => $hasDonorService && ! $hasHealthService ? 'Donor' : 'Cek Kesehatan',

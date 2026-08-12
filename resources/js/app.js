@@ -536,6 +536,14 @@ Alpine.data('checkInDesk', (
     },
 
     select(participant) {
+        if (participant.registration?.is_available === false) {
+            toastr.info(participant.registration.is_finished
+                ? 'Peserta ini sudah selesai dan tetap tersedia sebagai riwayat.'
+                : 'Peserta ini sudah terdaftar pada Event aktif.');
+
+            return;
+        }
+
         this.selected = participant;
         this.query = participant.name;
         this.suggestions = [];
@@ -544,18 +552,27 @@ Alpine.data('checkInDesk', (
     },
 
     moveSuggestion(direction) {
-        if (this.suggestions.length === 0) {
+        const availableSuggestions = this.suggestions.filter(
+            (participant) => participant.registration?.is_available !== false,
+        );
+
+        if (availableSuggestions.length === 0) {
             return;
         }
 
-        this.activeSuggestionIndex = (
-            this.activeSuggestionIndex + direction + this.suggestions.length
-        ) % this.suggestions.length;
+        const currentParticipant = this.suggestions[this.activeSuggestionIndex];
+        const currentIndex = availableSuggestions.indexOf(currentParticipant);
+        const nextIndex = (currentIndex + direction + availableSuggestions.length) % availableSuggestions.length;
+        this.activeSuggestionIndex = this.suggestions.indexOf(availableSuggestions[nextIndex]);
     },
 
     chooseActiveSuggestion() {
         if (this.activeSuggestionIndex >= 0) {
-            this.select(this.suggestions[this.activeSuggestionIndex]);
+            const participant = this.suggestions[this.activeSuggestionIndex];
+
+            if (participant?.registration?.is_available !== false) {
+                this.select(participant);
+            }
         }
     },
 
@@ -913,30 +930,19 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
     pollingTimer: null,
     goto: {
         open: false,
-        lane: 'male',
+        lane: 'global',
         search: '',
         selectedTicketId: null,
     },
-    lanes: [
-        {
-            value: 'male',
-            label: 'Laki-laki',
-            cardClass: 'border-sky-200',
-            headerClass: 'bg-gradient-to-r from-indigo-700 to-sky-600',
-            currentClass: 'border-sky-100 bg-gradient-to-br from-sky-50 to-indigo-50/70',
-            numberClass: 'text-indigo-700',
-            nextButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
-        },
-        {
-            value: 'female',
-            label: 'Perempuan',
-            cardClass: 'border-rose-200',
-            headerClass: 'bg-gradient-to-r from-rose-600 to-fuchsia-600',
-            currentClass: 'border-rose-100 bg-gradient-to-br from-rose-50 to-fuchsia-50/70',
-            numberClass: 'text-rose-700',
-            nextButtonClass: 'bg-rose-600 hover:bg-rose-700',
-        },
-    ],
+    lanes: [{
+        value: 'global',
+        label: 'Global',
+        cardClass: 'border-indigo-200',
+        headerClass: 'bg-gradient-to-r from-indigo-700 to-sky-600',
+        currentClass: 'border-sky-100 bg-gradient-to-br from-sky-50 to-indigo-50/70',
+        numberClass: 'text-indigo-700',
+        nextButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
+    }],
     init() {
         const channel = window.Echo
             ?.channel(`events.${eventId}`)
@@ -969,6 +975,10 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
         return this.snapshot?.stages?.health_check ?? [];
     },
 
+    get eligibilityParticipants() {
+        return this.snapshot?.stages?.waiting_screening ?? [];
+    },
+
     get donatingParticipants() {
         return this.snapshot?.stages?.donating ?? [];
     },
@@ -981,72 +991,111 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
         return this.activePositions.filter((participant) => participant.call?.is_active);
     },
 
-    ticketsFor(lane) {
-        return this.tickets.filter((ticket) => ticket.participant.gender_value === lane);
+    get primaryParticipant() {
+        return this.activePositions.find((participant) => participant.status === 'calling')
+            ?? this.activePositions.find((participant) => participant.status === 'health_check')
+            ?? this.activePositions.find((participant) => participant.status === 'waiting_screening')
+            ?? this.activePositions.find((participant) => participant.status === 'donating')
+            ?? null;
     },
 
-    waitingTicketsFor(lane) {
-        return this.ticketsFor(lane)
+    get waitingTickets() {
+        return this.tickets
             .filter((ticket) => ticket.status === 'waiting')
-            .sort((first, second) => first.number - second.number || first.id - second.id);
+            .sort((first, second) => this.compareRegistrationOrder(first, second));
     },
 
-    gotoTicketsFor(lane) {
-        return this.ticketsFor(lane)
+    get upcomingTickets() {
+        return this.waitingTickets.slice(0, 3);
+    },
+
+    get currentTicket() {
+        return this.tickets.find((ticket) => ticket.status === 'calling') ?? null;
+    },
+
+    get nextUrl() {
+        return this.snapshot?.queue?.next_url ?? '';
+    },
+
+    get canCallNext() {
+        return this.currentTicket === null && this.waitingTickets.length > 0;
+    },
+
+    get gotoTickets() {
+        return this.tickets
             .filter((ticket) => ['waiting', 'skipped'].includes(ticket.status))
-            .sort((first, second) => first.number - second.number || first.id - second.id);
+            .sort((first, second) => this.compareRegistrationOrder(first, second));
     },
 
-    currentTicketFor(lane) {
-        return this.ticketsFor(lane).find((ticket) => ticket.status === 'calling') ?? null;
+    ticketsFor() {
+        return this.tickets;
     },
 
-    nextTicketFor(lane) {
-        if (this.currentTicketFor(lane)) {
+    waitingTicketsFor() {
+        return this.waitingTickets;
+    },
+
+    gotoTicketsFor() {
+        return this.gotoTickets;
+    },
+
+    currentTicketFor() {
+        return this.currentTicket;
+    },
+
+    nextTicketFor() {
+        if (! this.canCallNext) {
             return null;
         }
 
-        return this.waitingTicketsFor(lane)[0] ?? null;
+        return { urls: { call: this.nextUrl } };
     },
 
-    skippableTicketFor(lane) {
-        return this.ticketsFor(lane).find((ticket) => ticket.status === 'calling') ?? null;
+    skippableTicketFor() {
+        return this.currentTicket;
     },
 
-    laneLabel(lane) {
-        return this.lanes.find((item) => item.value === lane)?.label ?? 'dipilih';
+    laneLabel() {
+        return 'Global';
     },
 
-    ensureNext(lane) {
-        if (this.nextTicketFor(lane)) {
+    compareRegistrationOrder(first, second) {
+        return (first.registration_order ?? Number.MAX_SAFE_INTEGER) - (second.registration_order ?? Number.MAX_SAFE_INTEGER)
+            || first.id - second.id;
+    },
+
+    ensureNext() {
+        if (this.canCallNext) {
             return true;
         }
 
-        toastr.error(`Belum ada antrean ${this.laneLabel(lane).toLowerCase()} yang dapat dipanggil.`);
+        toastr.error(this.currentTicket
+            ? 'Selesaikan atau Skip peserta yang sedang dipanggil terlebih dahulu.'
+            : 'Belum ada peserta menunggu yang dapat dipanggil.');
 
         return false;
     },
 
-    ensureSkip(lane) {
-        if (this.skippableTicketFor(lane)) {
+    ensureSkip() {
+        if (this.currentTicket) {
             return true;
         }
 
-        toastr.error(`Belum ada nomor ${this.laneLabel(lane).toLowerCase()} yang sedang dipanggil.`);
+        toastr.error('Belum ada peserta yang sedang dipanggil.');
 
         return false;
     },
 
-    openGoto(lane) {
-        if (this.currentTicketFor(lane)) {
-            toastr.error(`Selesaikan atau Skip nomor ${this.laneLabel(lane).toLowerCase()} yang sedang dipanggil terlebih dahulu.`);
+    openGoto() {
+        if (this.currentTicket) {
+            toastr.error('Selesaikan atau Skip peserta yang sedang dipanggil terlebih dahulu.');
 
             return;
         }
 
         this.goto = {
             open: true,
-            lane,
+            lane: 'global',
             search: '',
             selectedTicketId: null,
         };
@@ -1061,7 +1110,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
     gotoCandidates() {
         const search = this.goto.search.trim().toLocaleLowerCase();
 
-        return this.gotoTicketsFor(this.goto.lane).filter((ticket) => {
+        return this.gotoTickets.filter((ticket) => {
             if (! search) {
                 return true;
             }
@@ -1073,7 +1122,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
     },
 
     selectedGotoTicket() {
-        return this.gotoTicketsFor(this.goto.lane)
+        return this.gotoTickets
             .find((ticket) => ticket.id === this.goto.selectedTicketId)
             ?? null;
     },
@@ -1086,7 +1135,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
         const ticket = this.selectedGotoTicket();
 
         if (! ticket) {
-            toastr.error(`Pilih peserta aktif pada jalur ${this.laneLabel(this.goto.lane)} terlebih dahulu.`);
+            toastr.error('Pilih peserta aktif terlebih dahulu.');
 
             return false;
         }
@@ -1246,6 +1295,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
         { key: 'waiting', label: 'Menunggu', iconClass: 'bg-amber-50 text-amber-700', icon: '<path stroke-linecap="round" d="M12 6v6l4 2"/>' },
         { key: 'calling', label: 'Sedang dipanggil', iconClass: 'bg-sky-50 text-sky-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>' },
         { key: 'health_check_stage', label: 'Cek kesehatan', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
+        { key: 'eligibility', label: 'Cek kelayakan donor', iconClass: 'bg-violet-50 text-violet-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m-6-6 6 6 6-6M5 5h14"/>' },
         { key: 'donating', label: 'Sedang donor', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3v18M5 12h14"/>' },
         { key: 'finished', label: 'Selesai', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
     ],
@@ -1452,6 +1502,7 @@ Alpine.data('reportDashboard', (initialSnapshot, dataUrl, eventId) => ({
         { key: 'selected_health_only', label: 'Kesehatan saja' },
         { key: 'waiting', label: 'Menunggu' },
         { key: 'health_check_stage', label: 'Cek kesehatan' },
+        { key: 'eligibility', label: 'Cek kelayakan donor' },
         { key: 'donating', label: 'Sedang donor' },
         { key: 'finished', label: 'Selesai' },
     ],

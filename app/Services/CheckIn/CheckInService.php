@@ -101,6 +101,8 @@ class CheckInService
                     );
                 }
 
+                $eventParticipant->registration_order ??= $this->nextRegistrationOrder($lockedEvent);
+
                 $selectedServices = $this->selectedServices($eventParticipant);
                 $recoveryServices = $selectedServices === [] ? $serviceTypes : $selectedServices;
                 $initialRoute = $this->participantServiceWorkflow->registrationRoute(
@@ -172,6 +174,7 @@ class CheckInService
             $eventParticipant->status = ParticipantStatus::Waiting;
             $eventParticipant->current_service_post_id = $initialRoute->servicePost->id;
             $eventParticipant->checked_in_at = now();
+            $eventParticipant->registration_order = $this->nextRegistrationOrder($lockedEvent);
             $eventParticipant->checked_in_by = $actor?->id;
             $eventParticipant->save();
 
@@ -434,6 +437,14 @@ class CheckInService
             'number' => $this->queueNumberGenerator->next($event, $servicePost),
             'status' => QueueTicketStatus::Waiting,
         ]);
+    }
+
+    private function nextRegistrationOrder(Event $event): int
+    {
+        return (int) EventParticipant::query()
+            ->where('event_id', $event->id)
+            ->lockForUpdate()
+            ->max('registration_order') + 1;
     }
 
     /**

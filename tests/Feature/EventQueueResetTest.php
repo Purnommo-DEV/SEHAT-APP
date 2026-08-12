@@ -54,7 +54,7 @@ class EventQueueResetTest extends TestCase
             [ParticipantServiceType::Donor],
         );
         $workflow = app(OperationalWorkflowService::class);
-        $workflow->startHealthCheck($event, $registration->eventParticipant, $actor);
+        $workflow->startEligibility($event, $registration->eventParticipant, $actor);
         $workflow->startDonation($event, $registration->eventParticipant, $actor);
 
         HealthAssessment::factory()->create([
@@ -134,7 +134,7 @@ class EventQueueResetTest extends TestCase
             [ParticipantServiceType::Donor],
         );
         $this->assertSame(1, $nextRegistration->eventParticipant->registration_number);
-        $workflow->startHealthCheck($event->fresh(), $nextRegistration->eventParticipant, $actor);
+        $workflow->startEligibility($event->fresh(), $nextRegistration->eventParticipant, $actor);
         $workflow->startDonation($event->fresh(), $nextRegistration->eventParticipant, $actor);
         $donorTicket = QueueTicket::query()
             ->where('event_participant_id', $nextRegistration->eventParticipant->id)
@@ -249,9 +249,15 @@ class EventQueueResetTest extends TestCase
             'is_active' => true,
         ]);
         ServicePost::factory()->for($event)->create([
+            'type' => ServicePostType::Screening,
+            'behavior' => ServicePostBehavior::ScreeningForm,
+            'sequence' => 2,
+            'is_active' => true,
+        ]);
+        ServicePost::factory()->for($event)->create([
             'type' => ServicePostType::Donation,
             'behavior' => ServicePostBehavior::DonationForm,
-            'sequence' => 2,
+            'sequence' => 3,
             'is_active' => true,
         ]);
 

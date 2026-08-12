@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $current_service_post_id
  * @property ParticipantStatus $status
  * @property Carbon|null $checked_in_at
+ * @property int|null $registration_order
  * @property int|null $checked_in_by
  * @property Carbon|null $completed_at
  * @property Carbon|null $cancelled_at
@@ -55,6 +56,7 @@ class EventParticipant extends Model
         'current_service_post_id',
         'status',
         'checked_in_at',
+        'registration_order',
         'checked_in_by',
         'completed_at',
         'cancelled_at',

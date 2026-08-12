@@ -36,7 +36,7 @@ enum ParticipantStatus: string
             self::ServiceInProgress => 'Sedang dilayani',
             self::WaitingHealth => 'Menunggu pemeriksaan',
             self::HealthInProgress => 'Sedang diperiksa',
-            self::WaitingScreening => 'Menunggu screening',
+            self::WaitingScreening => 'Cek Kelayakan Donor',
             self::NotEligible => 'Tidak layak donor',
             self::WaitingDonor => 'Menunggu donor',
             self::DonationInProgress => 'Sedang donor',
@@ -61,6 +61,7 @@ enum ParticipantStatus: string
             self::Waiting,
             self::Calling,
             self::HealthCheck,
+            self::WaitingScreening,
             self::Donating,
             self::Finished,
         ];

@@ -122,9 +122,46 @@ class CheckInTest extends TestCase
             $content,
         );
         $this->assertStringContainsString(
-            ':disabled="! selected || submitting || ! eventActive || ! hasAvailableService || selectedServices.length === 0"',
+            ':disabled="! selected || selected?.registration?.is_available === false || submitting || ! eventActive || ! hasAvailableService || selectedServices.length === 0"',
             $content,
         );
+    }
+
+    public function test_autocomplete_and_recent_check_ins_keep_existing_finished_registration_as_history(): void
+    {
+        $administrator = $this->administrator();
+        $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
+        $this->healthPost($event);
+        $participant = Participant::factory()->create(['name' => 'Budi Riwayat']);
+
+        $this->actingAs($administrator)
+            ->post(route('events.check-ins.store', $event), [
+                'participant_id' => $participant->id,
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])
+            ->assertRedirect();
+
+        $this->getJson(route('events.check-ins.participants.autocomplete', [$event, 'q' => 'Budi']))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $participant->id)
+            ->assertJsonPath('data.0.registration.is_registered', true)
+            ->assertJsonPath('data.0.registration.is_available', false)
+            ->assertJsonPath('data.0.registration.is_finished', false);
+
+        $registration = EventParticipant::query()->firstOrFail();
+        $registration->update([
+            'status' => ParticipantStatus::Finished,
+            'completed_at' => now(),
+        ]);
+
+        $this->getJson(route('events.check-ins.participants.autocomplete', [$event, 'q' => 'Budi']))
+            ->assertOk()
+            ->assertJsonPath('data.0.registration.is_available', false)
+            ->assertJsonPath('data.0.registration.is_finished', true);
+        $this->getJson(route('events.check-ins.data', $event))
+            ->assertOk()
+            ->assertJsonPath('data.0.is_finished', true)
+            ->assertJsonPath('data.0.participant_status', ParticipantStatus::Finished->value);
     }
 
     public function test_donor_registration_requires_screening_and_donation_posts(): void

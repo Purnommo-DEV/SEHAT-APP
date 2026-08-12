@@ -107,7 +107,10 @@ class PollingFallbackTest extends TestCase
             ->assertJsonPath('meta.donation_capacity.male.available', 4)
             ->assertJsonPath('meta.donation_capacity.female.capacity', 4);
 
-        $this->postJson(route('events.operations.donating.start', [$event, $registration->eventParticipant]))
+        $this->postJson(route('events.operations.eligibility.start', [$event, $registration->eventParticipant]))
+            ->assertOk()
+            ->assertJsonPath('data.status', ParticipantStatus::WaitingScreening->value);
+        $this->postJson(route('events.operations.eligibility.eligible', [$event, $registration->eventParticipant]))
             ->assertOk()
             ->assertJsonPath('data.status', ParticipantStatus::Donating->value);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
@@ -149,9 +152,15 @@ class PollingFallbackTest extends TestCase
             'is_active' => true,
         ]);
         ServicePost::factory()->for($event)->create([
+            'type' => ServicePostType::Screening,
+            'behavior' => ServicePostBehavior::ScreeningForm,
+            'sequence' => 2,
+            'is_active' => true,
+        ]);
+        ServicePost::factory()->for($event)->create([
             'type' => ServicePostType::Donation,
             'behavior' => ServicePostBehavior::DonationForm,
-            'sequence' => 2,
+            'sequence' => 3,
             'is_active' => true,
         ]);
 

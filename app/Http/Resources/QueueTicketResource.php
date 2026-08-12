@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\ParticipantStatus;
 use App\Models\EventParticipantService;
 use App\Models\QueueTicket;
 use Illuminate\Http\Request;
@@ -22,6 +23,10 @@ class QueueTicketResource extends JsonResource
             'number' => $this->number,
             'formatted_number' => $this->formattedNumber(),
             'registration_number' => $this->eventParticipant->formattedRegistrationNumber($this->event->settings),
+            'registration_order' => $this->eventParticipant->registration_order,
+            'is_finished' => $this->eventParticipant->status === ParticipantStatus::Finished,
+            'participant_status' => $this->eventParticipant->status->value,
+            'participant_status_label' => $this->eventParticipant->status->label(),
             'queue_type' => $this->queue_type->value,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),

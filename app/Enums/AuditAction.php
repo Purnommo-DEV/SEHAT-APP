@@ -26,6 +26,7 @@ enum AuditAction: string
     case ParticipantCheckedIn = 'participant.checked_in';
     case ParticipantRegistrationCancelled = 'participant.registration_cancelled';
     case ParticipantHealthCheckStarted = 'participant.health_check_started';
+    case ParticipantEligibilityStarted = 'participant.eligibility_started';
     case ParticipantMovedToDonation = 'participant.moved_to_donation';
     case ParticipantWorkflowCompleted = 'participant.workflow_completed';
     case QueueTicketCalled = 'queue_ticket.called';
@@ -65,6 +66,7 @@ enum AuditAction: string
             self::ParticipantCheckedIn => 'Peserta check-in',
             self::ParticipantRegistrationCancelled => 'Registrasi peserta dibatalkan',
             self::ParticipantHealthCheckStarted => 'Cek kesehatan dimulai',
+            self::ParticipantEligibilityStarted => 'Cek kelayakan donor dimulai',
             self::ParticipantMovedToDonation => 'Peserta masuk proses donor',
             self::ParticipantWorkflowCompleted => 'Proses peserta selesai',
             self::QueueTicketCalled => 'Nomor antrean dipanggil',

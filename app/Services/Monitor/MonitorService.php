@@ -24,7 +24,11 @@ class MonitorService
     /** @return array<string, mixed> */
     public function snapshot(): array
     {
-        $event = Event::query()->active()->with('settings')->first();
+        $event = Event::query()
+            ->select(['id', 'code', 'name', 'location'])
+            ->active()
+            ->with('settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits')
+            ->first();
 
         if (! $event instanceof Event) {
             return ['event' => null, 'queues' => [], 'donation_capacity' => null];
@@ -33,6 +37,7 @@ class MonitorService
         $capacity = $this->donationCapacity->snapshot($event);
 
         $waitingPost = ServicePost::query()
+            ->select(['id', 'event_id', 'behavior', 'sequence'])
             ->where('event_id', $event->id)
             ->where('behavior', ServicePostBehavior::HealthForm->value)
             ->where('is_active', true)
@@ -42,36 +47,57 @@ class MonitorService
         $tickets = $waitingPost === null
             ? collect()
             : QueueTicket::query()
-                ->where('event_id', $event->id)
-                ->where('service_post_id', $waitingPost->id)
-                ->whereIn('status', [
+                ->select([
+                    'queue_tickets.id',
+                    'queue_tickets.event_id',
+                    'queue_tickets.event_participant_id',
+                    'queue_tickets.service_post_id',
+                    'queue_tickets.queue_type',
+                    'queue_tickets.number',
+                    'queue_tickets.status',
+                ])
+                ->join('event_participants', 'event_participants.id', '=', 'queue_tickets.event_participant_id')
+                ->where('queue_tickets.event_id', $event->id)
+                ->where('queue_tickets.service_post_id', $waitingPost->id)
+                ->whereIn('queue_tickets.status', [
                     QueueTicketStatus::Waiting->value,
                     QueueTicketStatus::Calling->value,
                     QueueTicketStatus::Serving->value,
                     QueueTicketStatus::Skipped->value,
                 ])
                 ->with([
+                    'eventParticipant:id,event_id,participant_id,registration_number,registration_order,status',
                     'eventParticipant.participant:id,name,gender',
                     'eventParticipant.services:id,event_participant_id,service',
-                    'servicePost',
                 ])
-                ->orderByRaw("case status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
-                ->orderBy('number')
-                ->orderBy('id')
+                ->orderByRaw("case queue_tickets.status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
+                ->orderBy('event_participants.registration_order')
+                ->orderBy('event_participants.checked_in_at')
+                ->orderBy('event_participants.id')
                 ->get();
 
         $activeParticipants = EventParticipant::query()
+            ->select([
+                'id',
+                'event_id',
+                'participant_id',
+                'registration_number',
+                'registration_order',
+                'status',
+            ])
             ->where('event_id', $event->id)
             ->whereIn('status', [
                 ParticipantStatus::Calling->value,
                 ParticipantStatus::HealthCheck->value,
+                ParticipantStatus::WaitingScreening->value,
                 ParticipantStatus::Donating->value,
             ])
             ->with([
                 'participant:id,name,gender',
                 'services:id,event_participant_id,service',
             ])
-            ->orderBy('registration_number')
+            ->orderBy('registration_order')
+            ->orderBy('checked_in_at')
             ->orderBy('id')
             ->get();
 
@@ -114,11 +140,11 @@ class MonitorService
         $current = $lane->first(fn (QueueTicket $ticket): bool => $ticket->status === QueueTicketStatus::Calling);
         $currentPosition = $activeParticipants
             ->filter(fn (EventParticipant $participant): bool => $participant->participant->gender === $gender)
-            ->sortByDesc('updated_at')
+            ->sortBy('registration_order')
             ->first();
         $waiting = $lane
             ->filter(fn (QueueTicket $ticket): bool => $ticket->status === QueueTicketStatus::Waiting)
-            ->sortBy('number')
+            ->sortBy(fn (QueueTicket $ticket): int => $ticket->eventParticipant->registration_order ?? PHP_INT_MAX)
             ->take(5)
             ->values();
 
@@ -169,6 +195,7 @@ class MonitorService
         return [
             'id' => $participant->id,
             'number' => $participant->formattedRegistrationNumber($settings) ?? '-',
+            'registration_order' => $participant->registration_order,
             'participant_name' => $participant->participant->name,
             'participant_gender' => $participant->participant->gender->value,
             'participant_gender_label' => $participant->participant->gender->label(),
@@ -187,6 +214,7 @@ class MonitorService
         return [
             'id' => $participant->id,
             'number' => $participant->formattedRegistrationNumber($settings) ?? '-',
+            'registration_order' => $participant->registration_order,
             'participant_name' => $participant->participant->name,
             'participant_gender' => $participant->participant->gender->value,
             'participant_gender_label' => $participant->participant->gender->label(),
@@ -201,13 +229,10 @@ class MonitorService
 
     private function targetLabel(EventParticipant $participant): string
     {
-        $hasHealthCheck = $participant->services->contains(
-            fn (EventParticipantService $service): bool => $service->service->value === 'health_check',
-        );
-
         return match ($participant->status) {
-            ParticipantStatus::Calling => $hasHealthCheck ? 'Cek Kesehatan' : 'Donor',
+            ParticipantStatus::Calling => 'Cek Kesehatan',
             ParticipantStatus::HealthCheck => 'Cek Kesehatan',
+            ParticipantStatus::WaitingScreening => 'Cek Kelayakan Donor',
             ParticipantStatus::Donating => 'Donor',
             default => $participant->status->label(),
         };

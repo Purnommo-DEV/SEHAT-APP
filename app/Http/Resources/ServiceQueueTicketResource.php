@@ -36,6 +36,7 @@ class ServiceQueueTicketResource extends JsonResource
             'number' => $this->formattedNumber(),
             'display_number' => $this->eventParticipant->formattedRegistrationNumber($this->event->settings)
                 ?? $this->formattedNumber(),
+            'registration_order' => $this->eventParticipant->registration_order,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'position' => [

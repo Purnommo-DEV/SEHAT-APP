@@ -32,15 +32,25 @@ class ParticipantStateMachine
                 // Legacy endpoints remain compatible; the operational UI only
                 // exposes health start after a NEXT or GOTO call.
                 ParticipantStatus::HealthCheck,
+                ParticipantStatus::WaitingScreening,
                 ParticipantStatus::Cancelled,
             ],
             ParticipantStatus::Calling => [
                 ParticipantStatus::Waiting,
                 ParticipantStatus::HealthCheck,
-                ParticipantStatus::Donating,
+                ParticipantStatus::WaitingScreening,
                 ParticipantStatus::Cancelled,
             ],
-            ParticipantStatus::HealthCheck => [ParticipantStatus::Donating, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
+            ParticipantStatus::HealthCheck => [ParticipantStatus::WaitingScreening, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
+            ParticipantStatus::WaitingScreening => [
+                ParticipantStatus::Donating,
+                ParticipantStatus::Finished,
+                // Kept for historical workflow records and legacy endpoints;
+                // the current operational UI transitions directly to Donating.
+                ParticipantStatus::WaitingDonor,
+                ParticipantStatus::NotEligible,
+                ParticipantStatus::Cancelled,
+            ],
             ParticipantStatus::Donating => [ParticipantStatus::Finished, ParticipantStatus::Cancelled],
             ParticipantStatus::Registered => [ParticipantStatus::CheckedIn, ParticipantStatus::WaitingService, ParticipantStatus::Cancelled],
             ParticipantStatus::CheckedIn => [ParticipantStatus::WaitingService, ParticipantStatus::WaitingHealth, ParticipantStatus::Cancelled],
@@ -53,7 +63,6 @@ class ParticipantStateMachine
                 ParticipantStatus::Finished,
                 ParticipantStatus::Cancelled,
             ],
-            ParticipantStatus::WaitingScreening => [ParticipantStatus::NotEligible, ParticipantStatus::WaitingDonor, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
             ParticipantStatus::NotEligible => [ParticipantStatus::Finished],
             ParticipantStatus::WaitingDonor => [ParticipantStatus::DonationInProgress, ParticipantStatus::Cancelled],
             ParticipantStatus::DonationInProgress => [ParticipantStatus::DonationCompleted, ParticipantStatus::Cancelled],

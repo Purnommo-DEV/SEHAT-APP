@@ -14,7 +14,7 @@ use App\Enums\ServicePostType;
 use App\Events\DashboardUpdated;
 use App\Events\ParticipantDonationCompleted;
 use App\Events\ParticipantMovedToDonation;
-use App\Events\ParticipantMovedToHealthCheck;
+use App\Events\ParticipantMovedToEligibility;
 use App\Events\QueueUpdated;
 use App\Events\TVMonitorUpdated;
 use App\Models\Event;
@@ -38,7 +38,7 @@ class OperationalWorkflowTest extends TestCase
     public function test_donor_participant_follows_the_final_four_stage_workflow_and_is_audited(): void
     {
         EventFacade::fake([
-            ParticipantMovedToHealthCheck::class,
+            ParticipantMovedToEligibility::class,
             ParticipantMovedToDonation::class,
             ParticipantDonationCompleted::class,
             QueueUpdated::class,
@@ -57,8 +57,8 @@ class OperationalWorkflowTest extends TestCase
         $this->assertSame(ParticipantStatus::Waiting, $registration->eventParticipant->status);
         $this->assertSame('L001', $registration->registrationNumber);
 
-        $healthCheck = $service->startHealthCheck($event, $registration->eventParticipant, $actor);
-        $this->assertSame(ParticipantStatus::HealthCheck, $healthCheck->status);
+        $eligibility = $service->startEligibility($event, $registration->eventParticipant, $actor);
+        $this->assertSame(ParticipantStatus::WaitingScreening, $eligibility->status);
         $this->assertDatabaseHas('queue_tickets', [
             'id' => $registration->queueTicket->id,
             'status' => QueueTicketStatus::Cancelled->value,
@@ -81,7 +81,7 @@ class OperationalWorkflowTest extends TestCase
             'event_id' => $event->id,
             'action' => 'participant.workflow_completed',
         ]);
-        EventFacade::assertDispatched(ParticipantMovedToHealthCheck::class);
+        EventFacade::assertDispatched(ParticipantMovedToEligibility::class);
         EventFacade::assertDispatched(ParticipantMovedToDonation::class);
         EventFacade::assertDispatched(ParticipantDonationCompleted::class);
         EventFacade::assertDispatched(QueueUpdated::class);
@@ -102,7 +102,7 @@ class OperationalWorkflowTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $service->startEligibility($event, $registration->eventParticipant, $actor);
             $service->startDonation($event, $registration->eventParticipant, $actor);
             $ticket = $registration->eventParticipant->queueTickets()
                 ->whereIn('queue_type', [QueueType::MaleDonor->value, QueueType::FemaleDonor->value])
@@ -127,7 +127,7 @@ class OperationalWorkflowTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $service->startEligibility($event, $registration->eventParticipant, $actor);
             $service->startDonation($event, $registration->eventParticipant, $actor);
             $numbers[] = $registration->eventParticipant->queueTickets()
                 ->whereIn('queue_type', [QueueType::MaleDonor->value, QueueType::FemaleDonor->value])
@@ -161,7 +161,7 @@ class OperationalWorkflowTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $service->startEligibility($event, $registration->eventParticipant, $actor);
             $service->startDonation($event, $registration->eventParticipant, $actor);
             $activeRegistrations[] = $registration;
         }
@@ -207,7 +207,7 @@ class OperationalWorkflowTest extends TestCase
             $actor,
             [ParticipantServiceType::Donor],
         );
-        $service->startHealthCheck($event, $waitingForBed->eventParticipant, $actor);
+        $service->startEligibility($event, $waitingForBed->eventParticipant, $actor);
 
         try {
             $service->startDonation($event, $waitingForBed->eventParticipant, $actor);
@@ -217,7 +217,7 @@ class OperationalWorkflowTest extends TestCase
         }
 
         $this->assertSame(
-            ParticipantStatus::HealthCheck,
+            ParticipantStatus::WaitingScreening,
             $waitingForBed->eventParticipant->fresh()->status,
         );
         $this->assertSame(4, Event::query()->findOrFail($event->id)->eventParticipants()
@@ -252,7 +252,7 @@ class OperationalWorkflowTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $service->startEligibility($event, $registration->eventParticipant, $actor);
             $service->startDonation($event, $registration->eventParticipant, $actor);
         }
 
@@ -262,7 +262,7 @@ class OperationalWorkflowTest extends TestCase
             $actor,
             [ParticipantServiceType::Donor],
         );
-        $service->startHealthCheck($event, $female->eventParticipant, $actor);
+        $service->startEligibility($event, $female->eventParticipant, $actor);
         $service->startDonation($event, $female->eventParticipant, $actor);
 
         $capacity = app(DashboardService::class)->snapshot()['donation_capacity'];
@@ -293,7 +293,7 @@ class OperationalWorkflowTest extends TestCase
                 $actor,
                 [ParticipantServiceType::Donor],
             );
-            $workflow->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $workflow->startEligibility($event, $registration->eventParticipant, $actor);
             $registrations[] = $registration;
         }
 
@@ -307,7 +307,7 @@ class OperationalWorkflowTest extends TestCase
         }
 
         $this->assertSame(ParticipantStatus::Donating, $registrations[0]->eventParticipant->fresh()->status);
-        $this->assertSame(ParticipantStatus::HealthCheck, $registrations[1]->eventParticipant->fresh()->status);
+        $this->assertSame(ParticipantStatus::WaitingScreening, $registrations[1]->eventParticipant->fresh()->status);
         $this->assertSame(1, Event::query()->findOrFail($event->id)->eventParticipants()
             ->where('status', ParticipantStatus::Donating->value)
             ->count());
@@ -364,7 +364,7 @@ class OperationalWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_donor_participant_can_complete_from_before_donor_when_not_continuing_to_donation(): void
+    public function test_donor_participant_can_be_marked_ineligible_without_creating_a_donor_ticket(): void
     {
         [$actor, $event] = $this->workflow(DonorNumberMode::Global);
         $registration = app(CheckInService::class)->checkIn(
@@ -375,14 +375,14 @@ class OperationalWorkflowTest extends TestCase
         );
         $service = app(OperationalWorkflowService::class);
 
-        $service->startHealthCheck($event, $registration->eventParticipant, $actor);
-        $finished = $service->completeBeforeDonation($event, $registration->eventParticipant, $actor);
+        $service->startEligibility($event, $registration->eventParticipant, $actor);
+        $finished = $service->markIneligible($event, $registration->eventParticipant, $actor);
 
         $this->assertSame(ParticipantStatus::Finished, $finished->status);
         $this->assertDatabaseHas('event_participant_services', [
             'event_participant_id' => $registration->eventParticipant->id,
             'service' => ParticipantServiceType::Donor->value,
-            'status' => ParticipantServiceStatus::Cancelled->value,
+            'status' => ParticipantServiceStatus::NotEligible->value,
         ]);
         $this->assertDatabaseMissing('queue_tickets', [
             'event_participant_id' => $registration->eventParticipant->id,
@@ -400,13 +400,13 @@ class OperationalWorkflowTest extends TestCase
             [ParticipantServiceType::Donor],
         );
         $service = app(OperationalWorkflowService::class);
-        $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+        $service->startEligibility($event, $registration->eventParticipant, $actor);
 
         try {
-            $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+            $service->startEligibility($event, $registration->eventParticipant, $actor);
             $this->fail('Transition kedua seharusnya ditolak.');
         } catch (ValidationException $exception) {
-            $this->assertSame('Status peserta sudah berubah menjadi Cek Kesehatan.', $exception->errors()['participant'][0]);
+            $this->assertSame('Status peserta sudah berubah menjadi Cek Kelayakan Donor.', $exception->errors()['participant'][0]);
         }
 
         $this->assertDatabaseCount('event_participant_status_histories', 2);
@@ -422,10 +422,10 @@ class OperationalWorkflowTest extends TestCase
             [ParticipantServiceType::Donor],
         );
 
-        $this->postJson(route('events.operations.health-check.start', [$event, $registration->eventParticipant]))
+        $this->postJson(route('events.operations.eligibility.start', [$event, $registration->eventParticipant]))
             ->assertOk()
-            ->assertJsonPath('data.status', ParticipantStatus::HealthCheck->value);
-        $this->postJson(route('events.operations.donating.start', [$event, $registration->eventParticipant]))
+            ->assertJsonPath('data.status', ParticipantStatus::WaitingScreening->value);
+        $this->postJson(route('events.operations.eligibility.eligible', [$event, $registration->eventParticipant]))
             ->assertOk()
             ->assertJsonPath('data.status', ParticipantStatus::Donating->value);
         $this->postJson(route('events.operations.completed.store', [$event, $registration->eventParticipant]))
@@ -433,7 +433,7 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('data.status', ParticipantStatus::Finished->value);
     }
 
-    public function test_single_operational_screen_is_ordered_by_registration_number_and_does_not_show_legacy_decisions(): void
+    public function test_single_operational_screen_is_ordered_by_global_registration_order_and_exposes_eligibility_actions(): void
     {
         [$actor, $event] = $this->workflow(DonorNumberMode::Global, true);
         $second = app(CheckInService::class)->checkIn($event, Participant::factory()->create(['gender' => ParticipantGender::Male]), $actor, [ParticipantServiceType::Donor]);
@@ -455,14 +455,15 @@ class OperationalWorkflowTest extends TestCase
             ->assertSee('SKIP')
             ->assertSee('GOTO')
             ->assertSee('Antrean berikutnya')
-            ->assertDontSee('Layak donor')
-            ->assertDontSee('Tidak layak');
+            ->assertSee('Cek Kelayakan Donor')
+            ->assertSee('LAYAK DONOR')
+            ->assertSee('TIDAK LAYAK / CANCEL DONOR');
         $this->assertLessThan(
             strpos($response->getContent(), 'L002'),
             strpos($response->getContent(), 'L001'),
         );
 
-        app(OperationalWorkflowService::class)->startHealthCheck($event, $second->eventParticipant, $actor);
+        app(OperationalWorkflowService::class)->startEligibility($event, $second->eventParticipant, $actor);
 
         $this->get(route('events.operations.health-check', $event))
             ->assertRedirect(route('events.operations.waiting.desk', $event));
@@ -540,7 +541,9 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('queues.0.active_positions.0.id', $participantId)
             ->assertJsonPath('queues.0.active_positions.0.position', ParticipantStatus::HealthCheck->value);
 
-        $this->postJson(route('events.operations.donating.start', [$event, $registration->eventParticipant]))
+        $this->postJson(route('events.operations.eligibility.start', [$event, $registration->eventParticipant]))
+            ->assertOk();
+        $this->postJson(route('events.operations.eligibility.eligible', [$event, $registration->eventParticipant]))
             ->assertOk();
 
         $this->getJson(route('events.operations.data', [$event, ParticipantStatus::HealthCheck->value]))
@@ -585,25 +588,30 @@ class OperationalWorkflowTest extends TestCase
         $both = app(CheckInService::class)->checkIn($event, Participant::factory()->create(), $actor, [ParticipantServiceType::Donor, ParticipantServiceType::HealthCheck]);
         $workflow = app(OperationalWorkflowService::class);
 
-        foreach ([$donorOnly, $healthOnly, $both] as $registration) {
-            $workflow->startHealthCheck($event, $registration->eventParticipant, $actor);
-        }
+        $workflow->startEligibility($event, $donorOnly->eventParticipant, $actor);
+        $workflow->startHealthCheck($event, $healthOnly->eventParticipant, $actor);
+        $workflow->startHealthCheck($event, $both->eventParticipant, $actor);
+
+        $eligibilityPayload = collect($this->getJson(route('events.operations.data', [$event, ParticipantStatus::WaitingScreening->value]))
+            ->assertOk()
+            ->json('data'))
+            ->keyBy('id');
+
+        $this->assertSame('Cek Kelayakan Donor', $eligibilityPayload[$donorOnly->eventParticipant->id]['position']['label']);
+        $this->assertSame(['Donor Darah'], array_column($eligibilityPayload[$donorOnly->eventParticipant->id]['services'], 'label'));
+        $this->assertTrue($eligibilityPayload[$donorOnly->eventParticipant->id]['can_decide_eligibility']);
 
         $payload = collect($this->getJson(route('events.operations.data', [$event, ParticipantStatus::HealthCheck->value]))
             ->assertOk()
             ->json('data'))
             ->keyBy('id');
 
-        $this->assertSame('Cek Kesehatan', $payload[$donorOnly->eventParticipant->id]['position']['label']);
-        $this->assertSame(['Donor Darah'], array_column($payload[$donorOnly->eventParticipant->id]['services'], 'label'));
-        $this->assertTrue($payload[$donorOnly->eventParticipant->id]['can_donate']);
-
         $this->assertSame(['Pemeriksaan Kesehatan'], array_column($payload[$healthOnly->eventParticipant->id]['services'], 'label'));
-        $this->assertFalse($payload[$healthOnly->eventParticipant->id]['can_donate']);
+        $this->assertFalse($payload[$healthOnly->eventParticipant->id]['can_start_eligibility']);
         $this->assertTrue($payload[$healthOnly->eventParticipant->id]['can_complete_before_donation']);
 
         $this->assertSame(['Donor Darah', 'Pemeriksaan Kesehatan'], array_column($payload[$both->eventParticipant->id]['services'], 'label'));
-        $this->assertTrue($payload[$both->eventParticipant->id]['can_donate']);
+        $this->assertTrue($payload[$both->eventParticipant->id]['can_start_eligibility']);
     }
 
     public function test_dashboard_and_tv_monitor_follow_operational_state_and_the_waiting_call(): void
@@ -617,6 +625,7 @@ class OperationalWorkflowTest extends TestCase
         );
         $service = app(OperationalWorkflowService::class);
         $service->startHealthCheck($event, $registration->eventParticipant, $actor);
+        $service->startEligibility($event, $registration->eventParticipant, $actor);
         $service->startDonation($event, $registration->eventParticipant, $actor);
 
         $waitingRegistration = app(CheckInService::class)->checkIn(
@@ -638,6 +647,10 @@ class OperationalWorkflowTest extends TestCase
         $this->assertSame(2, $dashboard['metrics']['checked_in']);
         $this->assertSame(1, $dashboard['metrics']['donating']);
         $this->assertSame(1, $dashboard['metrics']['selected_both']);
+        $this->assertContains(
+            $registration->eventParticipant->load('participant')->participant->name,
+            array_column($dashboard['activities'], 'subject_name'),
+        );
         $femaleLane = collect($monitor['queues'])->firstWhere('id', ParticipantGender::Female->value);
         $this->assertSame(
             $waitingRegistration->eventParticipant->load('participant')->formattedRegistrationNumber($event->settings),
@@ -681,9 +694,15 @@ class OperationalWorkflowTest extends TestCase
             'is_active' => true,
         ])->create();
         ServicePost::factory()->for($event)->state([
+            'type' => ServicePostType::Screening,
+            'behavior' => ServicePostBehavior::ScreeningForm,
+            'sequence' => 2,
+            'is_active' => true,
+        ])->create();
+        ServicePost::factory()->for($event)->state([
             'type' => ServicePostType::Donation,
             'behavior' => ServicePostBehavior::DonationForm,
-            'sequence' => 2,
+            'sequence' => 3,
             'is_active' => true,
         ])->create();
 

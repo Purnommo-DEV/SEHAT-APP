@@ -19,7 +19,7 @@ class GotoServiceQueueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'queue_lane' => ['required', Rule::enum(ParticipantGender::class)],
+            'queue_lane' => ['nullable', Rule::enum(ParticipantGender::class)],
         ];
     }
 
@@ -29,7 +29,6 @@ class GotoServiceQueueRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'queue_lane.required' => 'Jalur antrean harus dipilih sebelum memanggil nomor.',
             'queue_lane.enum' => 'Jalur antrean tidak valid.',
         ];
     }

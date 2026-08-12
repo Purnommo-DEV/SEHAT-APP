@@ -10,8 +10,8 @@ use App\Models\EventParticipant;
 use App\Models\Participant;
 use App\Models\QueueTicket;
 use App\Services\CheckIn\CheckInService;
+use App\Services\CheckIn\RecentCheckInTicketService;
 use App\Services\Workflow\WorkflowDefinitionService;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,11 +19,14 @@ use Illuminate\View\View;
 
 class CheckInController extends Controller
 {
-    public function index(Event $event, WorkflowDefinitionService $workflowService): View
-    {
+    public function index(
+        Event $event,
+        WorkflowDefinitionService $workflowService,
+        RecentCheckInTicketService $recentTickets,
+    ): View {
         $event->load('settings');
         $workflow = $workflowService->validate($event);
-        $tickets = $this->recentTickets($event);
+        $tickets = $recentTickets->forEvent($event);
 
         return view('check-ins.index', [
             'event' => $event,
@@ -103,22 +106,5 @@ class CheckInController extends Controller
         return redirect()
             ->route('events.check-ins.index', $event)
             ->with('status', $message);
-    }
-
-    /**
-     * @return Collection<int, QueueTicket>
-     */
-    private function recentTickets(Event $event): Collection
-    {
-        return QueueTicket::query()
-            ->where('event_id', $event->id)
-            ->whereIn('id', QueueTicket::query()
-                ->selectRaw('MIN(id)')
-                ->where('event_id', $event->id)
-                ->groupBy('event_participant_id'))
-            ->with(['event.settings', 'eventParticipant.participant', 'eventParticipant.services', 'servicePost'])
-            ->latest('id')
-            ->limit(20)
-            ->get();
     }
 }

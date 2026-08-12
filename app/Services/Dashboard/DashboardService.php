@@ -26,13 +26,19 @@ class DashboardService
     /** @return array<string, mixed> */
     public function snapshot(): array
     {
-        $event = Event::query()->active()->with([
-            'settings',
+        $event = Event::query()->select([
+            'id',
+            'code',
+            'name',
+            'location',
+            'starts_at',
+        ])->active()->with([
+            'settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits',
             'servicePosts' => fn ($query) => $query->where('is_active', true)
                 ->whereIn('behavior', [
                     ServicePostBehavior::HealthForm->value,
                     ServicePostBehavior::DonationForm->value,
-                ]),
+                ])->select(['id', 'event_id', 'name', 'behavior']),
         ])->first();
 
         if (! $event instanceof Event) {
@@ -101,16 +107,30 @@ class DashboardService
             ->groupBy('service_post_id');
 
         $participants = EventParticipant::query()
+            ->select([
+                'id',
+                'event_id',
+                'participant_id',
+                'current_service_post_id',
+                'registration_number',
+                'registration_order',
+                'status',
+                'updated_at',
+                'checked_in_at',
+            ])
             ->where('event_id', $event->id)
             ->whereIn('status', [
                 ParticipantStatus::Waiting->value,
                 ParticipantStatus::Calling->value,
                 ParticipantStatus::HealthCheck->value,
+                ParticipantStatus::WaitingScreening->value,
                 ParticipantStatus::Donating->value,
                 ParticipantStatus::Finished->value,
             ])
             ->with(['participant:id,name,gender', 'currentServicePost:id,name', 'services:id,event_participant_id,service'])
-            ->orderBy('registration_number')
+            ->orderBy('registration_order')
+            ->orderBy('checked_in_at')
+            ->orderBy('id')
             ->limit(30)
             ->get();
 
@@ -135,6 +155,7 @@ class DashboardService
                 'waiting' => (int) $statusCounts->get(ParticipantStatus::Waiting->value, 0),
                 'calling' => (int) $statusCounts->get(ParticipantStatus::Calling->value, 0),
                 'health_check_stage' => (int) $statusCounts->get(ParticipantStatus::HealthCheck->value, 0),
+                'eligibility' => (int) $statusCounts->get(ParticipantStatus::WaitingScreening->value, 0),
                 'donating' => (int) $statusCounts->get(ParticipantStatus::Donating->value, 0),
                 'finished' => (int) $statusCounts->get(ParticipantStatus::Finished->value, 0),
             ],
@@ -169,6 +190,7 @@ class DashboardService
             return [
                 'id' => $participant->id,
                 'number' => $participant->formattedRegistrationNumber($event->settings),
+                'registration_order' => $participant->registration_order,
                 'participant_name' => $participant->participant->name,
                 'participant_gender' => $participant->participant->gender->value,
                 'participant_gender_label' => $participant->participant->gender->label(),
@@ -185,39 +207,83 @@ class DashboardService
     private function activities(Event $event): array
     {
         $activities = AuditLog::query()
+            ->select(['id', 'user_id', 'subject_type', 'subject_id', 'action', 'created_at'])
             ->where('event_id', $event->id)
-            ->with(['user', 'subject'])
+            ->with(['user:id,name'])
             ->latest('created_at')
             ->limit(30)
             ->get();
-        $activities->loadMorph('subject', [
-            EventParticipant::class => ['participant'],
-            QueueTicket::class => ['eventParticipant.participant'],
-            Participant::class => [],
-            ServicePost::class => [],
-            Event::class => [],
-        ]);
+        $subjectNames = $this->subjectNames($activities);
 
         return array_values($activities->map(fn (AuditLog $activity): array => [
             'id' => $activity->id,
             'action' => $activity->action->value,
             'action_label' => $activity->action->label(),
-            'subject_name' => $this->subjectName($activity),
+            'subject_name' => $subjectNames[$this->subjectKey($activity)] ?? 'Aktivitas operasional',
             'user_name' => $activity->user instanceof User ? $activity->user->name : 'Sistem',
             'created_at' => $activity->created_at->toIso8601String(),
         ])->all());
     }
 
-    private function subjectName(AuditLog $activity): string
+    /**
+     * @param  Collection<int, AuditLog>  $activities
+     * @return array<string, string>
+     */
+    private function subjectNames(Collection $activities): array
     {
-        return match (true) {
-            $activity->subject instanceof EventParticipant => $activity->subject->participant->name,
-            $activity->subject instanceof QueueTicket => $activity->subject->eventParticipant->participant->name,
-            $activity->subject instanceof Participant => $activity->subject->name,
-            $activity->subject instanceof ServicePost => $activity->subject->name,
-            $activity->subject instanceof Event => $activity->subject->name,
-            default => 'Aktivitas operasional',
-        };
+        $idsFor = fn (string $type) => $activities
+            ->where('subject_type', $type)
+            ->pluck('subject_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $names = [];
+
+        EventParticipant::query()
+            ->select(['id', 'participant_id'])
+            ->whereKey($idsFor(EventParticipant::class))
+            ->with('participant:id,name')
+            ->get()
+            ->each(function (EventParticipant $participant) use (&$names): void {
+                $names[EventParticipant::class.':'.$participant->id] = $participant->participant->name;
+            });
+        QueueTicket::query()
+            ->select(['id', 'event_participant_id'])
+            ->whereKey($idsFor(QueueTicket::class))
+            ->with('eventParticipant:id,participant_id')
+            ->with('eventParticipant.participant:id,name')
+            ->get()
+            ->each(function (QueueTicket $ticket) use (&$names): void {
+                $names[QueueTicket::class.':'.$ticket->id] = $ticket->eventParticipant->participant->name;
+            });
+        Participant::query()
+            ->select(['id', 'name'])
+            ->whereKey($idsFor(Participant::class))
+            ->get()
+            ->each(function (Participant $participant) use (&$names): void {
+                $names[Participant::class.':'.$participant->id] = $participant->name;
+            });
+        ServicePost::query()
+            ->select(['id', 'name'])
+            ->whereKey($idsFor(ServicePost::class))
+            ->get()
+            ->each(function (ServicePost $post) use (&$names): void {
+                $names[ServicePost::class.':'.$post->id] = $post->name;
+            });
+        Event::query()
+            ->select(['id', 'name'])
+            ->whereKey($idsFor(Event::class))
+            ->get()
+            ->each(function (Event $subjectEvent) use (&$names): void {
+                $names[Event::class.':'.$subjectEvent->id] = $subjectEvent->name;
+            });
+
+        return $names;
+    }
+
+    private function subjectKey(AuditLog $activity): string
+    {
+        return $activity->subject_type.':'.$activity->subject_id;
     }
 
     /** @return array<string, int> */
@@ -226,7 +292,7 @@ class DashboardService
         return array_fill_keys([
             'total_participants', 'checked_in', 'donor', 'health_check', 'selected_donor',
             'selected_health_check', 'selected_both', 'selected_donor_only', 'selected_health_only',
-            'waiting', 'calling', 'health_check_stage', 'donating', 'finished',
+            'waiting', 'calling', 'health_check_stage', 'eligibility', 'donating', 'finished',
         ], 0);
     }
 

@@ -125,6 +125,39 @@ class OperationalWorkflowController extends Controller
         return $this->actionResponse($request, $participant, 'Peserta masuk proses donor.');
     }
 
+    public function startEligibility(
+        OperationalWorkflowActionRequest $request,
+        Event $event,
+        EventParticipant $eventParticipant,
+        OperationalWorkflowService $workflow,
+    ): JsonResponse|RedirectResponse {
+        $participant = $workflow->startEligibility($event, $eventParticipant, $request->user());
+
+        return $this->actionResponse($request, $participant, 'Peserta masuk tahap Cek Kelayakan Donor.');
+    }
+
+    public function markEligible(
+        OperationalWorkflowActionRequest $request,
+        Event $event,
+        EventParticipant $eventParticipant,
+        OperationalWorkflowService $workflow,
+    ): JsonResponse|RedirectResponse {
+        $participant = $workflow->startDonation($event, $eventParticipant, $request->user());
+
+        return $this->actionResponse($request, $participant, 'Peserta dinyatakan layak dan masuk proses donor.');
+    }
+
+    public function markIneligible(
+        OperationalWorkflowActionRequest $request,
+        Event $event,
+        EventParticipant $eventParticipant,
+        OperationalWorkflowService $workflow,
+    ): JsonResponse|RedirectResponse {
+        $participant = $workflow->markIneligible($event, $eventParticipant, $request->user());
+
+        return $this->actionResponse($request, $participant, 'Donor dibatalkan. Peserta telah selesai tanpa mengambil kapasitas donor.');
+    }
+
     public function complete(
         OperationalWorkflowActionRequest $request,
         Event $event,
@@ -147,10 +180,36 @@ class OperationalWorkflowController extends Controller
         return $this->actionResponse($request, $participant, 'Peserta telah diselesaikan dari Area Cek Kesehatan.');
     }
 
+    public function next(
+        OperationalWorkflowActionRequest $request,
+        Event $event,
+        ServiceQueueService $queueService,
+    ): JsonResponse|RedirectResponse {
+        $queuePost = $queueService->controlPostForWaitingArea($event);
+
+        if ($queuePost === null) {
+            abort(422, 'Pos Area Tunggu aktif tidak tersedia.');
+        }
+
+        $ticket = $queueService->callNextWaiting($event, $queuePost, $request->user());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Nomor antrean berikutnya berhasil dipanggil.',
+                'data' => [
+                    'id' => $ticket->id,
+                    'status' => $ticket->status->value,
+                ],
+            ]);
+        }
+
+        return back()->with('status', 'Nomor antrean berikutnya berhasil dipanggil.');
+    }
+
     /**
      * @return array{
      *     stages: array<string, list<mixed>>,
-     *     queue: array{post: array{id: int, name: string}|null, tickets: list<mixed>, positions: list<mixed>},
+     *     queue: array{post: array{id: int, name: string}|null, next_url: string, tickets: list<mixed>, positions: list<mixed>},
      *     donation_capacity: array<string, mixed>
      * }
      */
@@ -178,7 +237,7 @@ class OperationalWorkflowController extends Controller
     }
 
     /**
-     * @return array{post: array{id: int, name: string}|null, tickets: list<mixed>, positions: list<mixed>}
+     * @return array{post: array{id: int, name: string}|null, next_url: string, tickets: list<mixed>, positions: list<mixed>}
      */
     private function waitingPayload(
         Event $event,
@@ -191,6 +250,7 @@ class OperationalWorkflowController extends Controller
             'post' => $queuePost === null
                 ? null
                 : ['id' => $queuePost->id, 'name' => $queuePost->name],
+            'next_url' => route('events.operations.waiting.next', $event),
             'tickets' => $queuePost === null
                 ? []
                 : array_values(ServiceQueueTicketResource::collection(
@@ -208,6 +268,7 @@ class OperationalWorkflowController extends Controller
             ParticipantStatus::Waiting->value => ParticipantStatus::Waiting,
             ParticipantStatus::Calling->value => ParticipantStatus::Calling,
             ParticipantStatus::HealthCheck->value => ParticipantStatus::HealthCheck,
+            ParticipantStatus::WaitingScreening->value => ParticipantStatus::WaitingScreening,
             ParticipantStatus::Donating->value => ParticipantStatus::Donating,
             ParticipantStatus::Finished->value => ParticipantStatus::Finished,
             default => abort(404),
