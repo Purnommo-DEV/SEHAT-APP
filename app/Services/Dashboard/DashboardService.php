@@ -27,6 +27,7 @@ class DashboardService
     public function snapshot(): array
     {
         $event = Event::query()->active()->with([
+            'settings',
             'servicePosts' => fn ($query) => $query->where('is_active', true)
                 ->whereIn('behavior', [
                     ServicePostBehavior::HealthForm->value,
@@ -103,6 +104,7 @@ class DashboardService
             ->where('event_id', $event->id)
             ->whereIn('status', [
                 ParticipantStatus::Waiting->value,
+                ParticipantStatus::Calling->value,
                 ParticipantStatus::HealthCheck->value,
                 ParticipantStatus::Donating->value,
                 ParticipantStatus::Finished->value,
@@ -131,6 +133,7 @@ class DashboardService
                 'selected_donor_only' => (int) ($serviceMetrics?->getAttribute('selected_donor_only') ?? 0),
                 'selected_health_only' => (int) ($serviceMetrics?->getAttribute('selected_health_only') ?? 0),
                 'waiting' => (int) $statusCounts->get(ParticipantStatus::Waiting->value, 0),
+                'calling' => (int) $statusCounts->get(ParticipantStatus::Calling->value, 0),
                 'health_check_stage' => (int) $statusCounts->get(ParticipantStatus::HealthCheck->value, 0),
                 'donating' => (int) $statusCounts->get(ParticipantStatus::Donating->value, 0),
                 'finished' => (int) $statusCounts->get(ParticipantStatus::Finished->value, 0),
@@ -151,20 +154,21 @@ class DashboardService
                 ];
             })->values()->all(),
             'donation_capacity' => $this->donationCapacity->snapshot($event)->toArray(),
-            'current_positions' => $this->currentPositions($participants),
+            'current_positions' => $this->currentPositions($participants, $event),
             'activities' => $this->activities($event),
         ];
     }
 
     /** @param Collection<int, EventParticipant> $participants
      *  @return list<array<string, mixed>> */
-    private function currentPositions(Collection $participants): array
+    private function currentPositions(Collection $participants, Event $event): array
     {
-        return array_values($participants->map(function (EventParticipant $participant): array {
+        return array_values($participants->map(function (EventParticipant $participant) use ($event): array {
             $post = $participant->getRelation('currentServicePost');
 
             return [
                 'id' => $participant->id,
+                'number' => $participant->formattedRegistrationNumber($event->settings),
                 'participant_name' => $participant->participant->name,
                 'participant_gender' => $participant->participant->gender->value,
                 'participant_gender_label' => $participant->participant->gender->label(),
@@ -222,7 +226,7 @@ class DashboardService
         return array_fill_keys([
             'total_participants', 'checked_in', 'donor', 'health_check', 'selected_donor',
             'selected_health_check', 'selected_both', 'selected_donor_only', 'selected_health_only',
-            'waiting', 'health_check_stage', 'donating', 'finished',
+            'waiting', 'calling', 'health_check_stage', 'donating', 'finished',
         ], 0);
     }
 

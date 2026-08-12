@@ -90,7 +90,10 @@ class LegacyWorkflowCompatibilityTest extends TestCase
         $this->assertFalse($decision->alreadyDecided);
         $this->assertSame($nextPost->id, $participant->current_service_post_id);
         $this->assertSame(ParticipantStatus::WaitingDonor, $participant->status);
-        $this->assertSame(QueueType::DonorGlobal, $decision->donorQueueTicket?->queue_type);
+        $this->assertSame(
+            QueueTicket::donorQueueTypeFor($participant->participant->gender),
+            $decision->donorQueueTicket?->queue_type,
+        );
         $this->assertSame($nextPost->id, $decision->donorQueueTicket->service_post_id);
         EventFacade::assertDispatched(ParticipantEligible::class);
         EventFacade::assertDispatched(ParticipantMovedToDonation::class);

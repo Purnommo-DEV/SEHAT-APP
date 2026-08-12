@@ -62,7 +62,7 @@ class DonorScreeningTest extends TestCase
                 'reason' => 'Alasan ini tidak disimpan untuk hasil layak.',
             ])
             ->assertOk()
-            ->assertJsonPath('message', 'Layak donor. Nomor antrean D001 diterbitkan.');
+            ->assertJsonPath('message', 'Layak donor. Nomor antrean L001 diterbitkan.');
 
         $screening = DonorScreening::query()->firstOrFail();
         $eventParticipant->refresh();
@@ -73,7 +73,7 @@ class DonorScreeningTest extends TestCase
         $this->assertSame($donationPost->id, $eventParticipant->current_service_post_id);
         $this->assertDatabaseHas('queue_tickets', [
             'event_participant_id' => $eventParticipant->id,
-            'queue_type' => QueueType::DonorGlobal->value,
+            'queue_type' => QueueType::MaleDonor->value,
             'number' => 1,
         ]);
         $this->assertDatabaseHas('audit_logs', [

@@ -894,10 +894,20 @@ Alpine.data('donorQueue', (initialTickets, dataUrl, eventId) => ({
     },
 }));
 
-Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
-    queue: initialQueue,
+Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl = null, canUpdateCapacity = false) => ({
+    snapshot: initialQueue,
     dataUrl,
     eventId,
+    capacityUpdateUrl,
+    canUpdateCapacity,
+    capacityGenders: [
+        { key: 'male' },
+        { key: 'female' },
+    ],
+    editableCapacity: {
+        male: initialQueue?.donation_capacity?.male?.capacity ?? 1,
+        female: initialQueue?.donation_capacity?.female?.capacity ?? 1,
+    },
     isRefreshing: false,
     refreshPending: false,
     pollingTimer: null,
@@ -944,11 +954,31 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
     },
 
     get tickets() {
-        return this.queue?.tickets ?? [];
+        return this.snapshot?.queue?.tickets ?? [];
     },
 
     get activePositions() {
-        return this.queue?.positions ?? [];
+        return this.snapshot?.queue?.positions ?? [];
+    },
+
+    get capacity() {
+        return this.snapshot?.donation_capacity ?? null;
+    },
+
+    get healthParticipants() {
+        return this.snapshot?.stages?.health_check ?? [];
+    },
+
+    get donatingParticipants() {
+        return this.snapshot?.stages?.donating ?? [];
+    },
+
+    get finishedParticipants() {
+        return this.snapshot?.stages?.finished ?? [];
+    },
+
+    get currentParticipants() {
+        return this.activePositions.filter((participant) => participant.call?.is_active);
     },
 
     ticketsFor(lane) {
@@ -968,11 +998,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
     },
 
     currentTicketFor(lane) {
-        const tickets = this.ticketsFor(lane);
-
-        return tickets.find((ticket) => ticket.status === 'calling')
-            ?? tickets.find((ticket) => ticket.status === 'serving')
-            ?? null;
+        return this.ticketsFor(lane).find((ticket) => ticket.status === 'calling') ?? null;
     },
 
     nextTicketFor(lane) {
@@ -1084,7 +1110,11 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
                 throw new Error();
             }
 
-            this.queue = await response.json();
+            this.snapshot = await response.json();
+            this.editableCapacity = {
+                male: this.capacity?.male?.capacity ?? this.editableCapacity.male,
+                female: this.capacity?.female?.capacity ?? this.editableCapacity.female,
+            };
         } catch {
             reportRefreshError(this, 'Data Area Tunggu tidak dapat diperbarui.');
         } finally {
@@ -1094,6 +1124,21 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
 
     displayNumber(ticket) {
         return ticket?.display_number ?? ticket?.number ?? null;
+    },
+
+    capacityFor(gender) {
+        return this.capacity?.[gender] ?? {
+            label: gender === 'male' ? 'Laki-laki' : 'Perempuan',
+            capacity: 0,
+            active: 0,
+            available: 0,
+            is_full: true,
+        };
+    },
+
+    adjustCapacity(gender, amount) {
+        const current = Number(this.editableCapacity[gender] ?? 1);
+        this.editableCapacity[gender] = Math.max(1, Math.min(50, current + amount));
     },
 }));
 
@@ -1199,6 +1244,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
         { key: 'selected_donor_only', label: 'Donor saja', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3c3 4 5 6.5 5 10a5 5 0 0 1-10 0c0-3.5 2-6 5-10Z"/>' },
         { key: 'selected_health_only', label: 'Kesehatan saja', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
         { key: 'waiting', label: 'Menunggu', iconClass: 'bg-amber-50 text-amber-700', icon: '<path stroke-linecap="round" d="M12 6v6l4 2"/>' },
+        { key: 'calling', label: 'Sedang dipanggil', iconClass: 'bg-sky-50 text-sky-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>' },
         { key: 'health_check_stage', label: 'Cek kesehatan', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
         { key: 'donating', label: 'Sedang donor', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3v18M5 12h14"/>' },
         { key: 'finished', label: 'Selesai', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },

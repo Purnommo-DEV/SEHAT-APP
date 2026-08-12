@@ -33,11 +33,7 @@
                 <ul class="mt-3 space-y-1">
                     @foreach ([
                         ['check-ins.active', 'Registrasi', 'check-ins.*|events.check-ins.*', []],
-                        ['operations.active', 'Menunggu', 'operations.active|events.operations.waiting', []],
-                        ['operations.waiting.desk', 'Screen Petugas', 'operations.waiting.desk|events.operations.waiting.desk|queues.*|events.service-queues.*', []],
-                        ['operations.stage', 'Cek Kesehatan', 'events.operations.health-check|events.operations.before-donor', ['stage' => 'health-check']],
-                        ['operations.stage', 'Sedang Donor', 'events.operations.donating', ['stage' => 'donating']],
-                        ['operations.stage', 'Selesai', 'events.operations.completed', ['stage' => 'completed']],
+                        ['operations.active', 'Operasional', 'operations.*|events.operations.*|queues.*|events.service-queues.*', []],
                         ['dashboard', 'Dashboard', 'dashboard', []],
                         ['monitor.active', 'TV Monitor', 'monitor.*|events.monitor.*', []],
                     ] as [$route, $label, $patterns, $parameters])

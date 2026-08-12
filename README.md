@@ -3,7 +3,7 @@
 SEHAT-APP adalah sistem operasional panitia donor darah dan pemeriksaan kesehatan berbasis Laravel 12. Workflow aktif mengikuti SOP UAT final:
 
 ```text
-MENUNGGU → CEK KESEHATAN → SEDANG DONOR → SELESAI
+MENUNGGU → SEDANG DIPANGGIL → CEK KESEHATAN / SEDANG DONOR → SELESAI
 ```
 
 Peserta memilih layanan Donor Darah, Pemeriksaan Kesehatan, atau keduanya saat registrasi. Layanan yang dipilih disimpan terpisah dari status operasional. Peserta kesehatan-saja diselesaikan dari tahap Cek Kesehatan tanpa masuk donor.
@@ -11,9 +11,9 @@ Peserta memilih layanan Donor Darah, Pemeriksaan Kesehatan, atau keduanya saat r
 ## Fitur operasional
 
 - Registrasi cepat dengan nomor registrasi global yang memakai angka kosong terkecil.
-- Area kerja panitia yang terpisah: **Menunggu**, **Cek Kesehatan**, **Sedang Donor**, dan **Selesai**. Peserta berpindah antar-area, bukan hilang dari pemantauan sebelum selesai.
-- **Screen Petugas** khusus menyediakan Next, Skip, dan Goto per gender serta posisi terkini seluruh peserta aktif.
-- Nomor donor diterbitkan saat aksi **Donor**, dengan mode event Global (`D001`) atau Terpisah Laki-laki/Perempuan (`L001`, `P001`).
+- Satu **Screen Petugas** menampilkan antrean berikutnya, peserta sedang dipanggil, Cek Kesehatan, Sedang Donor, dan Selesai. Peserta tidak hilang dari pemantauan sebelum selesai.
+- Next dan Goto mengubah status menjadi **Sedang Dipanggil**; Skip mengembalikannya ke antrean. Peserta yang sudah di Cek Kesehatan atau Donor tidak menghalangi pemanggilan berikutnya.
+- Nomor donor selalu sama dengan nomor registrasi (`L021` tetap `L021`, `P021` tetap `P021`); tidak ada nomor donor kedua seperti `D001`.
 - Setiap event memiliki kapasitas bed donor **per gender** (default **4** laki-laki dan **4** perempuan). Laki-laki 4/4 tidak membatasi perempuan; hanya lane yang penuh tetap di Cek Kesehatan sampai donor pada gender yang sama selesai.
 - Administrator, atau petugas dengan permission `event.update_donation_capacity`, dapat memperbarui dua kapasitas saat event aktif. Perubahan diaudit dan tersinkron ke seluruh layar tanpa reload.
 - Administrator dengan permission `event.reset_queue` dapat memakai **Danger Zone** pada Pengaturan Event untuk mengosongkan data operasional satu event. Master peserta, konfigurasi nomor, pos, kapasitas, dan jejak audit tetap tersimpan; registrasi berikutnya kembali memakai nomor awal yang dikonfigurasi.
@@ -23,7 +23,7 @@ Peserta memilih layanan Donor Darah, Pemeriksaan Kesehatan, atau keduanya saat r
 
 ## Akses
 
-Panitia operasional tidak memakai login. Menu panitia terdiri dari Registrasi, Menunggu, Cek Kesehatan, Sedang Donor, Selesai, Screen Petugas, Dashboard, dan TV Monitor untuk event yang sedang aktif. Next, Skip, dan Goto hanya tersedia pada Screen Petugas; tiap area proses berikutnya mempunyai layar khusus agar petugas tidak mencampurkan tugas. Seluruh mutation tetap melalui middleware `web` (CSRF), rate limit, validasi Form Request, route model binding berscope event, transaction, dan row lock.
+Panitia operasional tidak memakai login. Menu panitia terdiri dari Registrasi, Operasional, Dashboard, dan TV Monitor untuk event yang sedang aktif. Next, Skip, Goto, Cek Kesehatan, Donor, dan Selesai berada pada Screen Petugas yang sama. Seluruh mutation tetap melalui middleware `web` (CSRF), rate limit, validasi Form Request, route model binding berscope event, transaction, dan row lock.
 
 Area manajemen tetap membutuhkan autentikasi dan permission: Event, master peserta, pos pelayanan, laporan, konfigurasi, serta administrasi pengguna/role.
 

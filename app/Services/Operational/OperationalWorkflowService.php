@@ -17,7 +17,6 @@ use App\Models\QueueTicket;
 use App\Models\ServicePost;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
-use App\Services\Queue\QueueNumberGenerator;
 use App\Services\Realtime\WorkflowRealtimePublisher;
 use App\Services\Workflow\ParticipantStateMachine;
 use App\Services\Workflow\QueueTicketStateMachine;
@@ -25,13 +24,11 @@ use App\Services\Workflow\WorkflowDefinitionService;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The operational donor lane intentionally has just four visible states:
- * waiting, health check, donating, and finished. Selected services remain
- * independent metadata for reporting and the health-only completion branch.
+ * Selected services remain independent metadata. Calling is the control-desk
+ * state; health check, donating, and finished are the visible process stages.
  */
 class OperationalWorkflowService
 {
@@ -40,7 +37,6 @@ class OperationalWorkflowService
         private readonly AuditLogger $auditLogger,
         private readonly ParticipantStateMachine $stateMachine,
         private readonly QueueTicketStateMachine $ticketStateMachine,
-        private readonly QueueNumberGenerator $queueNumberGenerator,
         private readonly DonationCapacityService $donationCapacity,
         private readonly WorkflowDefinitionService $workflow,
         private readonly WorkflowRealtimePublisher $realtimePublisher,
@@ -98,6 +94,7 @@ class OperationalWorkflowService
                 fn (ParticipantStatus $status): string => $status->value,
                 [
                     ParticipantStatus::Waiting,
+                    ParticipantStatus::Calling,
                     ParticipantStatus::HealthCheck,
                     ParticipantStatus::Donating,
                 ],
@@ -114,7 +111,15 @@ class OperationalWorkflowService
             $healthPost = $this->requiredPost($lockedEvent, ServicePostBehavior::HealthForm);
             $oldStatus = $lockedParticipant->status;
 
-            $this->ensureStatus($lockedParticipant, ParticipantStatus::Waiting);
+            if (! in_array($lockedParticipant->status, [ParticipantStatus::Waiting, ParticipantStatus::Calling], true)) {
+                throw ValidationException::withMessages([
+                    'participant' => "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
+                ]);
+            }
+
+            if ($lockedParticipant->status === ParticipantStatus::Calling) {
+                $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
+            }
             $this->stateMachine->transition($lockedParticipant, ParticipantStatus::HealthCheck);
             $lockedParticipant->current_service_post_id = $healthPost->id;
             $lockedParticipant->save();
@@ -155,11 +160,26 @@ class OperationalWorkflowService
             $donationPost = $this->requiredPost($activeEvent, ServicePostBehavior::DonationForm);
             $oldStatus = $lockedParticipant->status;
 
-            $this->ensureStatus($lockedParticipant, ParticipantStatus::HealthCheck);
             $donorService = $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::Donor);
+            $healthService = $this->selectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
+
+            if ($lockedParticipant->status === ParticipantStatus::Calling && $healthService instanceof EventParticipantService) {
+                throw ValidationException::withMessages([
+                    'participant' => 'Peserta memilih Pemeriksaan Kesehatan dan harus diproses di tahap Cek Kesehatan terlebih dahulu.',
+                ]);
+            }
+
+            if (! in_array($lockedParticipant->status, [ParticipantStatus::Calling, ParticipantStatus::HealthCheck], true)) {
+                throw ValidationException::withMessages([
+                    'participant' => "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
+                ]);
+            }
+
             $lockedParticipant->loadMissing('participant');
             $this->donationCapacity->reserveDonationSlot($activeEvent, $lockedParticipant->participant->gender);
-            $this->completeHealthServiceIfSelected($lockedParticipant);
+            if ($healthService instanceof EventParticipantService) {
+                $this->completeHealthServiceIfSelected($lockedParticipant);
+            }
 
             $donorTicket = $this->issueDonorTicket(
                 $activeEvent,
@@ -177,6 +197,11 @@ class OperationalWorkflowService
             $donorService->save();
             $lockedParticipant->current_service_post_id = $donationPost->id;
             $lockedParticipant->save();
+
+            // Donor-only participants move straight from the calling desk to
+            // donation. Their control ticket must be closed as well; otherwise
+            // NEXT/GOTO incorrectly sees the gender lane as still occupied.
+            $this->closeSupersededTickets($lockedParticipant, $actor);
 
             $this->recordTransition($lockedParticipant, $oldStatus, $actor);
             $this->auditLogger->record(
@@ -450,44 +475,24 @@ class OperationalWorkflowService
         ServicePost $donationPost,
         ?User $actor,
     ): QueueTicket {
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            try {
-                /** @var QueueTicket $ticket */
-                $ticket = $this->database->transaction(function () use ($event, $participant, $donationPost, $actor): QueueTicket {
-                    $donorNumber = $this->queueNumberGenerator->nextDonor(
-                        $event,
-                        $participant->participant->gender,
-                    );
-
-                    return QueueTicket::query()->create([
-                        'event_id' => $event->id,
-                        'event_participant_id' => $participant->id,
-                        'service_post_id' => $donationPost->id,
-                        'queue_type' => $donorNumber->queueType,
-                        'number' => $donorNumber->number,
-                        'status' => QueueTicketStatus::Serving,
-                        'called_at' => now(),
-                        'called_by' => $actor?->id,
-                        'served_at' => now(),
-                    ]);
-                });
-
-                return $ticket;
-            } catch (QueryException $exception) {
-                if (! $this->isActiveQueueNumberCollision($exception) || $attempt === 4) {
-                    throw $exception;
-                }
-            }
+        if ($participant->registration_number === null) {
+            throw new \LogicException('Peserta yang belum memiliki nomor registrasi tidak dapat masuk proses donor.');
         }
 
-        throw new \LogicException('Nomor donor tidak berhasil dibuat.');
-    }
-
-    private function isActiveQueueNumberCollision(QueryException $exception): bool
-    {
-        return in_array((string) $exception->getCode(), ['23000', '23505'], true)
-            && (str_contains($exception->getMessage(), 'active_number')
-                || str_contains($exception->getMessage(), 'event_scope_active_number'));
+        return QueueTicket::query()->create([
+            'event_id' => $event->id,
+            'event_participant_id' => $participant->id,
+            'service_post_id' => $donationPost->id,
+            // The donor ticket owns lifecycle data only. Its number is always
+            // the registration number, and its gender lane keeps same-number
+            // male/female registrations collision-safe at the database level.
+            'queue_type' => QueueTicket::donorQueueTypeFor($participant->participant->gender),
+            'number' => $participant->registration_number,
+            'status' => QueueTicketStatus::Serving,
+            'called_at' => now(),
+            'called_by' => $actor?->id,
+            'served_at' => now(),
+        ]);
     }
 
     private function recordTransition(EventParticipant $participant, ParticipantStatus $from, ?User $actor): void

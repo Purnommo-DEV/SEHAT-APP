@@ -21,38 +21,28 @@ class OperationalWorkflowController extends Controller
     public function index(
         Event $event,
     ): RedirectResponse {
-        return redirect()->route('events.operations.waiting', $event);
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
-    public function waiting(
-        Event $event,
-        OperationalWorkflowService $workflow,
-        DonationCapacityService $donationCapacity,
-    ): View {
-        return $this->stageView(
-            event: $event,
-            workflow: $workflow,
-            status: ParticipantStatus::Waiting,
-            title: 'Area Tunggu',
-            subtitle: 'Peserta yang belum masuk ke tahap Cek Kesehatan.',
-            description: 'Pilih CEK KESEHATAN saat peserta mulai diproses. Nomor antrean terkecil selalu berada di atas.',
-            action: 'start-health-check',
-            queueDeskUrl: route('events.operations.waiting.desk', $event),
-            donationCapacity: $donationCapacity->snapshot($event)->toArray(),
-        );
+    public function waiting(Event $event): RedirectResponse
+    {
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
     public function waitingDesk(
         Event $event,
         ServiceQueueService $queueService,
         OperationalWorkflowService $workflow,
+        DonationCapacityService $donationCapacity,
     ): View {
         $event->load('settings');
 
         return view('operations.waiting-desk', [
             'event' => $event,
-            'queueJson' => $this->waitingPayload($event, $queueService, $workflow),
+            'queueJson' => $this->screenPayload($event, $workflow, $queueService, $donationCapacity),
             'dataUrl' => route('events.operations.waiting.snapshot', $event),
+            'canUpdateDonationCapacity' => auth()->user()?->can('updateDonationCapacity', $event) ?? false,
+            'capacityUpdateUrl' => route('events.operations.donation-capacity.update', $event),
         ]);
     }
 
@@ -69,64 +59,32 @@ class OperationalWorkflowController extends Controller
         Event $event,
         ServiceQueueService $queueService,
         OperationalWorkflowService $workflow,
+        DonationCapacityService $donationCapacity,
     ): JsonResponse {
-        return response()->json($this->waitingPayload($event, $queueService, $workflow));
+        return response()->json($this->screenPayload($event, $workflow, $queueService, $donationCapacity));
     }
 
-    public function healthCheck(
-        Event $event,
-        OperationalWorkflowService $workflow,
-        DonationCapacityService $donationCapacity,
-    ): View {
-        return $this->stageView(
-            event: $event,
-            workflow: $workflow,
-            status: ParticipantStatus::HealthCheck,
-            title: 'Area Cek Kesehatan',
-            subtitle: 'Peserta yang sedang berada pada tahap Cek Kesehatan.',
-            description: 'Pilih DONOR untuk meneruskan proses donor, atau SELESAI bila peserta tidak melanjutkan proses donor.',
-            action: 'before-donation',
-            donationCapacity: $donationCapacity->snapshot($event)->toArray(),
-        );
+    /** Legacy stage URL retained for saved links; operational work is centralized on one screen. */
+    public function healthCheck(Event $event): RedirectResponse
+    {
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
     public function beforeDonation(Event $event): RedirectResponse
     {
-        return redirect()->route('events.operations.health-check', $event);
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
-    public function donating(
-        Event $event,
-        OperationalWorkflowService $workflow,
-        DonationCapacityService $donationCapacity,
-    ): View {
-        return $this->stageView(
-            event: $event,
-            workflow: $workflow,
-            status: ParticipantStatus::Donating,
-            title: 'Area Sedang Donor',
-            subtitle: 'Peserta yang sedang menjalani donor.',
-            description: 'Selesaikan peserta setelah proses donor di area ini selesai.',
-            action: 'complete-donation',
-            donationCapacity: $donationCapacity->snapshot($event)->toArray(),
-        );
+    /** Legacy stage URL retained for saved links; operational work is centralized on one screen. */
+    public function donating(Event $event): RedirectResponse
+    {
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
-    public function completed(
-        Event $event,
-        OperationalWorkflowService $workflow,
-        DonationCapacityService $donationCapacity,
-    ): View {
-        return $this->stageView(
-            event: $event,
-            workflow: $workflow,
-            status: ParticipantStatus::Finished,
-            title: 'Area Selesai',
-            subtitle: 'Riwayat peserta yang telah menyelesaikan alur operasional.',
-            description: 'Daftar ini bersifat read-only.',
-            action: 'read-only',
-            donationCapacity: $donationCapacity->snapshot($event)->toArray(),
-        );
+    /** Legacy stage URL retained for saved links; operational work is centralized on one screen. */
+    public function completed(Event $event): RedirectResponse
+    {
+        return redirect()->route('events.operations.waiting.desk', $event);
     }
 
     public function data(
@@ -192,7 +150,8 @@ class OperationalWorkflowController extends Controller
     /**
      * @return array{
      *     stages: array<string, list<mixed>>,
-     *     queue: array{post: array{id: int, name: string}|null, tickets: list<mixed>, positions: list<mixed>}
+     *     queue: array{post: array{id: int, name: string}|null, tickets: list<mixed>, positions: list<mixed>},
+     *     donation_capacity: array<string, mixed>
      * }
      */
     private function screenPayload(
@@ -243,45 +202,11 @@ class OperationalWorkflowController extends Controller
         ];
     }
 
-    /**
-     * @param  array<string, mixed>|null  $donationCapacity
-     */
-    private function stageView(
-        Event $event,
-        OperationalWorkflowService $workflow,
-        ParticipantStatus $status,
-        string $title,
-        string $subtitle,
-        string $description,
-        string $action,
-        ?string $queueDeskUrl = null,
-        ?array $donationCapacity = null,
-    ): View {
-        $event->load('settings');
-
-        return view('operations.stage', [
-            'event' => $event,
-            'title' => $title,
-            'subtitle' => $subtitle,
-            'description' => $description,
-            'action' => $action,
-            'participantsJson' => array_values(
-                OperationalParticipantResource::collection(
-                    $workflow->participantsForStage($event, $status),
-                )->resolve(),
-            ),
-            'dataUrl' => route('events.operations.data', [$event, $status->value]),
-            'queueDeskUrl' => $queueDeskUrl,
-            'donationCapacity' => $donationCapacity,
-            'canUpdateDonationCapacity' => auth()->user()?->can('updateDonationCapacity', $event) ?? false,
-            'capacityUpdateUrl' => route('events.operations.donation-capacity.update', $event),
-        ]);
-    }
-
     private function statusFor(string $stage): ParticipantStatus
     {
         return match ($stage) {
             ParticipantStatus::Waiting->value => ParticipantStatus::Waiting,
+            ParticipantStatus::Calling->value => ParticipantStatus::Calling,
             ParticipantStatus::HealthCheck->value => ParticipantStatus::HealthCheck,
             ParticipantStatus::Donating->value => ParticipantStatus::Donating,
             ParticipantStatus::Finished->value => ParticipantStatus::Finished,

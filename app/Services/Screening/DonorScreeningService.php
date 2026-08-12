@@ -18,7 +18,7 @@ use App\Models\QueueTicket;
 use App\Models\ServicePost;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
-use App\Services\Queue\QueueNumberGenerator;
+use App\Services\Queue\RegistrationNumberGenerator;
 use App\Services\Realtime\WorkflowRealtimePublisher;
 use App\Services\Workflow\LegacyServicePostBehaviorResolver;
 use App\Services\Workflow\ParticipantStateMachine;
@@ -34,7 +34,7 @@ class DonorScreeningService
         private readonly DatabaseManager $database,
         private readonly AuditLogger $auditLogger,
         private readonly ParticipantStateMachine $participantStateMachine,
-        private readonly QueueNumberGenerator $queueNumberGenerator,
+        private readonly RegistrationNumberGenerator $registrationNumberGenerator,
         private readonly WorkflowDefinitionService $workflow,
         private readonly LegacyServicePostBehaviorResolver $legacyPostBehavior,
         private readonly ServiceQueueService $serviceQueueService,
@@ -152,16 +152,28 @@ class DonorScreeningService
 
             if ($result === ScreeningResult::Eligible) {
                 $lockedParticipant->loadMissing('participant');
-                $donorNumber = $this->queueNumberGenerator->nextDonor(
-                    $lockedEvent,
-                    $lockedParticipant->participant->gender,
-                );
+                if ($lockedParticipant->registration_number === null) {
+                    $lockedParticipant->registration_number = $this->registrationNumberGenerator->next(
+                        $lockedEvent,
+                        $lockedParticipant->participant->gender,
+                    );
+                    $lockedParticipant->registration_number_scope = EventParticipant::registrationNumberScopeFor(
+                        $lockedParticipant->participant->gender,
+                    );
+                    $lockedParticipant->active_registration_number = $lockedParticipant->registration_number;
+                    // Legacy records can enter this compatibility path without a
+                    // registration number. Persist the claimed number before the
+                    // donor ticket is inserted, so the next participant sees it
+                    // under the event lock and cannot reuse it.
+                    $lockedParticipant->save();
+                }
+
                 $donorQueueTicket = QueueTicket::query()->create([
                     'event_id' => $lockedEvent->id,
                     'event_participant_id' => $lockedParticipant->id,
                     'service_post_id' => $destinationPost->id,
-                    'queue_type' => $donorNumber->queueType,
-                    'number' => $donorNumber->number,
+                    'queue_type' => QueueTicket::donorQueueTypeFor($lockedParticipant->participant->gender),
+                    'number' => $lockedParticipant->registration_number,
                     'status' => QueueTicketStatus::Waiting,
                 ]);
             }

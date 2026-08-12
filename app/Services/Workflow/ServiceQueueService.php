@@ -12,6 +12,7 @@ use App\Enums\ServicePostBehavior;
 use App\Events\ServiceQueueUpdated;
 use App\Models\Event;
 use App\Models\EventParticipant;
+use App\Models\EventParticipantStatusHistory;
 use App\Models\QueueTicket;
 use App\Models\ServicePost;
 use App\Models\User;
@@ -28,6 +29,7 @@ class ServiceQueueService
         private readonly DatabaseManager $database,
         private readonly AuditLogger $auditLogger,
         private readonly QueueTicketStateMachine $queueStateMachine,
+        private readonly ParticipantStateMachine $participantStateMachine,
         private readonly QueueNumberGenerator $queueNumberGenerator,
         private readonly WorkflowDefinitionService $workflow,
         private readonly ServicePostBehaviorResolver $behaviorResolver,
@@ -118,6 +120,19 @@ class ServiceQueueService
             function (Event $event, ServicePost $post, QueueTicket $ticket, EventParticipant $participant): void {
                 $this->ensureNoOtherActiveCallInLane($event, $post, $ticket, $participant);
             },
+            function (EventParticipant $participant) use ($actor): void {
+                $previousStatus = $participant->status;
+
+                if ($previousStatus !== ParticipantStatus::Waiting) {
+                    throw ValidationException::withMessages([
+                        'participant' => "Status peserta sudah berubah menjadi {$previousStatus->label()}.",
+                    ]);
+                }
+
+                $this->participantStateMachine->transition($participant, ParticipantStatus::Calling);
+                $participant->save();
+                $this->recordParticipantTransition($participant, $previousStatus, $actor);
+            },
         );
     }
 
@@ -132,6 +147,17 @@ class ServiceQueueService
             AuditAction::QueueTicketSkipped,
             function (QueueTicket $ticket): void {
                 $ticket->skipped_at = now();
+            },
+            null,
+            function (EventParticipant $participant) use ($actor): void {
+                if ($participant->status !== ParticipantStatus::Calling) {
+                    return;
+                }
+
+                $previousStatus = $participant->status;
+                $this->participantStateMachine->transition($participant, ParticipantStatus::Waiting);
+                $participant->save();
+                $this->recordParticipantTransition($participant, $previousStatus, $actor);
             },
         );
     }
@@ -399,6 +425,7 @@ class ServiceQueueService
     /**
      * @param  callable(QueueTicket): mixed  $mutate
      * @param  (callable(Event, ServicePost, QueueTicket, EventParticipant): mixed)|null  $beforeTransition
+     * @param  (callable(EventParticipant): mixed)|null  $participantMutation
      */
     private function updateTicket(
         Event $event,
@@ -409,6 +436,7 @@ class ServiceQueueService
         AuditAction $action,
         callable $mutate,
         ?callable $beforeTransition = null,
+        ?callable $participantMutation = null,
     ): QueueTicket {
         $updatedTicket = $this->database->transaction(function () use (
             $event,
@@ -419,6 +447,7 @@ class ServiceQueueService
             $action,
             $mutate,
             $beforeTransition,
+            $participantMutation,
         ): QueueTicket {
             $lockedEvent = $this->lockActiveEvent($event);
             [$lockedPost, $lockedTicket, $participant] = $this->lockContext($lockedEvent, $servicePost, $queueTicket);
@@ -429,6 +458,9 @@ class ServiceQueueService
             $this->queueStateMachine->transition($lockedTicket, $status);
             $mutate($lockedTicket);
             $lockedTicket->save();
+            if ($participantMutation !== null) {
+                $participantMutation($participant);
+            }
             $this->writeTicketAudit($lockedTicket, $actor, $action, $oldValues);
 
             return $lockedTicket;
@@ -494,10 +526,7 @@ class ServiceQueueService
             ->where('event_id', $event->id)
             ->where('service_post_id', $servicePost->id)
             ->where('id', '!=', $queueTicket->id)
-            ->whereIn('status', [
-                QueueTicketStatus::Calling->value,
-                QueueTicketStatus::Serving->value,
-            ])
+            ->where('status', QueueTicketStatus::Calling->value)
             ->whereHas(
                 'eventParticipant.participant',
                 fn ($query) => $query->where('gender', $participant->participant->gender->value),
@@ -527,6 +556,20 @@ class ServiceQueueService
         $ticket->served_at ??= now();
     }
 
+    private function recordParticipantTransition(
+        EventParticipant $participant,
+        ParticipantStatus $from,
+        ?User $actor,
+    ): void {
+        EventParticipantStatusHistory::query()->create([
+            'event_id' => $participant->event_id,
+            'event_participant_id' => $participant->id,
+            'from_status' => $from,
+            'to_status' => $participant->status,
+            'changed_by' => $actor?->id,
+        ]);
+    }
+
     private function createNextTicket(
         Event $event,
         EventParticipant $participant,
@@ -547,12 +590,19 @@ class ServiceQueueService
 
         if ($servicePost->behavior === ServicePostBehavior::DonationForm) {
             $participant->loadMissing('participant');
-            $donorNumber = $this->queueNumberGenerator->nextDonor(
-                $event,
-                $participant->participant->gender,
-            );
-            $queueType = $donorNumber->queueType;
-            $number = $donorNumber->number;
+            if ($participant->registration_number === null) {
+                $participant->registration_number = $this->queueNumberGenerator->nextRegistration(
+                    $event,
+                    $participant->participant->gender,
+                );
+                $participant->registration_number_scope = EventParticipant::registrationNumberScopeFor(
+                    $participant->participant->gender,
+                );
+                $participant->active_registration_number = $participant->registration_number;
+            }
+
+            $queueType = QueueTicket::donorQueueTypeFor($participant->participant->gender);
+            $number = $participant->registration_number;
         }
 
         return QueueTicket::query()->create([

@@ -89,8 +89,8 @@
             </section>
 
             <section class="border-t border-slate-100 pt-7">
-                <h2 class="text-base font-extrabold text-slate-900">Nomor donor</h2>
-                <p class="mt-1 text-sm text-slate-500">Gunakan antrean global atau pisahkan urutan laki-laki dan perempuan.</p>
+                <h2 class="text-base font-extrabold text-slate-900">Nomor proses donor</h2>
+                <p class="mt-1 text-sm text-slate-500">Nomor pada Cek Kesehatan, Donor, Dashboard, dan TV selalu mengikuti nomor registrasi peserta. Pengaturan di bawah dipertahankan hanya agar tiket historis lama tetap dapat dibaca.</p>
 
                 <div class="mt-4 grid gap-5 sm:grid-cols-2">
                     <label class="form-control sm:col-span-2">

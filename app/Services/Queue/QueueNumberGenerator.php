@@ -2,7 +2,6 @@
 
 namespace App\Services\Queue;
 
-use App\Data\DonorQueueNumber;
 use App\Enums\ParticipantGender;
 use App\Enums\QueueType;
 use App\Models\Event;
@@ -28,25 +27,6 @@ class QueueNumberGenerator
             ));
 
         return $this->smallestAvailable($query, 'active_number', $lockExistingNumbers);
-    }
-
-    /**
-     * Donor queue mode and lane are derived from event settings. Operational
-     * reservations hold a gender-specific capacity lock, not a global event
-     * lock, so reading configuration here must remain non-blocking.
-     */
-    public function nextDonor(Event $event, ParticipantGender $gender): DonorQueueNumber
-    {
-        $settings = $event->settings()->firstOrFail();
-        $queueType = $settings->donorQueueType($gender);
-
-        return new DonorQueueNumber(
-            queueType: $queueType,
-            // This lock is scoped to the chosen number lane, never to the
-            // event or capacity settings. In global-number mode it protects
-            // that one inherently shared number sequence only.
-            number: $this->next($event, $queueType),
-        );
     }
 
     /**

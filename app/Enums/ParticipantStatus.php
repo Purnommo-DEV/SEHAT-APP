@@ -5,6 +5,7 @@ namespace App\Enums;
 enum ParticipantStatus: string
 {
     case Waiting = 'waiting';
+    case Calling = 'calling';
     case HealthCheck = 'health_check';
     case Donating = 'donating';
     case Registered = 'registered';
@@ -26,6 +27,7 @@ enum ParticipantStatus: string
     {
         return match ($this) {
             self::Waiting => 'Menunggu',
+            self::Calling => 'Sedang Dipanggil',
             self::HealthCheck => 'Cek Kesehatan',
             self::Donating => 'Sedang Donor',
             self::Registered => 'Terdaftar',
@@ -57,6 +59,7 @@ enum ParticipantStatus: string
     {
         return [
             self::Waiting,
+            self::Calling,
             self::HealthCheck,
             self::Donating,
             self::Finished,

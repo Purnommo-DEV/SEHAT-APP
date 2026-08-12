@@ -87,7 +87,7 @@ class DonationQueueTest extends TestCase
         EventFacade::assertDispatchedTimes(DonorQueueUpdated::class, 3);
     }
 
-    public function test_legacy_screening_respects_global_event_donor_mode(): void
+    public function test_legacy_screening_reuses_registration_numbers_even_when_the_old_mode_is_global(): void
     {
         $administrator = $this->administrator();
         $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
@@ -116,14 +116,14 @@ class DonationQueueTest extends TestCase
         }
 
         $tickets = QueueTicket::query()
-            ->where('queue_type', QueueType::DonorGlobal->value)
+            ->whereIn('queue_type', [QueueType::MaleDonor->value, QueueType::FemaleDonor->value])
             ->with('event.settings')
             ->orderBy('id')
             ->get();
 
         $this->assertCount(2, $tickets);
-        $this->assertSame([1, 2], $tickets->pluck('number')->all());
-        $this->assertSame(['D001', 'D002'], $tickets->map->formattedNumber()->all());
+        $this->assertSame([1, 1], $tickets->pluck('number')->all());
+        $this->assertSame(['L001', 'P001'], $tickets->map->formattedNumber()->all());
     }
 
     public function test_donor_ticket_can_be_called_skipped_and_recalled(): void

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DonorNumberMode;
+use App\Enums\ParticipantGender;
 use App\Enums\QueueTicketStatus;
 use App\Enums\QueueType;
 use App\Enums\RegistrationNumberFormat;
@@ -106,8 +107,37 @@ class QueueTicket extends Model
         return 'post:'.($servicePostId ?? 0);
     }
 
+    /**
+     * Donor lifecycle tickets reuse the participant registration number.
+     * Their internal lane remains gender-scoped so L001 and P001 may coexist
+     * without relying on a second donor-number sequence.
+     */
+    public static function donorQueueTypeFor(ParticipantGender $gender): QueueType
+    {
+        return match ($gender) {
+            ParticipantGender::Male => QueueType::MaleDonor,
+            ParticipantGender::Female => QueueType::FemaleDonor,
+        };
+    }
+
     public function formattedNumber(): string
     {
+        $eventParticipant = $this->relationLoaded('eventParticipant')
+            ? $this->getRelation('eventParticipant')
+            : $this->eventParticipant()->with('participant')->first();
+        $event = $this->relationLoaded('event')
+            ? $this->getRelation('event')
+            : $this->event()->with('settings')->first();
+
+        if ($eventParticipant instanceof EventParticipant && $event instanceof Event) {
+            $settings = $this->settingsFor($event);
+            $registrationNumber = $eventParticipant->formattedRegistrationNumber($settings);
+
+            if ($registrationNumber !== null) {
+                return $registrationNumber;
+            }
+        }
+
         $servicePost = $this->relationLoaded('servicePost')
             ? $this->getRelation('servicePost')
             : $this->servicePost()->first();

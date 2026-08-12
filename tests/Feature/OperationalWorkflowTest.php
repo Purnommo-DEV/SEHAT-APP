@@ -114,7 +114,7 @@ class OperationalWorkflowTest extends TestCase
         $this->assertSame(['L001', 'L002', 'P001', 'P002'], $numbers);
     }
 
-    public function test_global_donor_mode_uses_a_single_donor_lane(): void
+    public function test_donor_ticket_reuses_registration_number_when_the_legacy_mode_is_global(): void
     {
         [$actor, $event] = $this->workflow(DonorNumberMode::Global);
         $service = app(OperationalWorkflowService::class);
@@ -130,13 +130,13 @@ class OperationalWorkflowTest extends TestCase
             $service->startHealthCheck($event, $registration->eventParticipant, $actor);
             $service->startDonation($event, $registration->eventParticipant, $actor);
             $numbers[] = $registration->eventParticipant->queueTickets()
-                ->where('queue_type', QueueType::DonorGlobal->value)
+                ->whereIn('queue_type', [QueueType::MaleDonor->value, QueueType::FemaleDonor->value])
                 ->latest('id')
                 ->firstOrFail()
                 ->formattedNumber();
         }
 
-        $this->assertSame(['D001', 'D002', 'D003'], $numbers);
+        $this->assertSame(['L001', 'P001', 'L002'], $numbers);
     }
 
     public function test_event_donation_capacity_is_independent_per_gender_and_releases_its_own_slot_after_completion(): void
@@ -433,7 +433,7 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('data.status', ParticipantStatus::Finished->value);
     }
 
-    public function test_operational_areas_are_separate_ordered_by_registration_number_and_do_not_show_legacy_decisions(): void
+    public function test_single_operational_screen_is_ordered_by_registration_number_and_does_not_show_legacy_decisions(): void
     {
         [$actor, $event] = $this->workflow(DonorNumberMode::Global, true);
         $second = app(CheckInService::class)->checkIn($event, Participant::factory()->create(['gender' => ParticipantGender::Male]), $actor, [ParticipantServiceType::Donor]);
@@ -442,18 +442,19 @@ class OperationalWorkflowTest extends TestCase
         $this->assertSame(2, $first->eventParticipant->registration_number);
 
         $this->get(route('events.operations.index', $event))
-            ->assertRedirect(route('events.operations.waiting', $event));
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
 
-        $response = $this->get(route('events.operations.waiting', $event));
+        $this->get(route('events.operations.waiting', $event))
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
+
+        $response = $this->get(route('events.operations.waiting.desk', $event));
 
         $response->assertOk()
-            ->assertSee('Area Tunggu')
-            ->assertSee('CEK KESEHATAN')
-            ->assertSee('Posisi saat ini')
-            ->assertSee('Layanan dipilih')
-            ->assertDontSee('NEXT')
-            ->assertDontSee('SKIP')
-            ->assertDontSee('GOTO')
+            ->assertSee('Operasional')
+            ->assertSee('NEXT')
+            ->assertSee('SKIP')
+            ->assertSee('GOTO')
+            ->assertSee('Antrean berikutnya')
             ->assertDontSee('Layak donor')
             ->assertDontSee('Tidak layak');
         $this->assertLessThan(
@@ -464,15 +465,9 @@ class OperationalWorkflowTest extends TestCase
         app(OperationalWorkflowService::class)->startHealthCheck($event, $second->eventParticipant, $actor);
 
         $this->get(route('events.operations.health-check', $event))
-            ->assertOk()
-            ->assertSee('Area Cek Kesehatan')
-            ->assertSee('Kapasitas Donor')
-            ->assertSee('DONOR')
-            ->assertSee('SELESAI')
-            ->assertDontSee('CEK KESEHATAN')
-            ->assertDontSee('Sebelum Donor');
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
         $this->get(route('events.operations.before-donor', $event))
-            ->assertRedirect(route('events.operations.health-check', $event));
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
     }
 
     public function test_starting_health_check_never_completes_a_participant_without_an_explicit_action(): void
@@ -533,9 +528,9 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('data.0.id', $participantId);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonCount(0, 'tickets')
-            ->assertJsonPath('positions.0.id', $participantId)
-            ->assertJsonPath('positions.0.position.value', ParticipantStatus::HealthCheck->value);
+            ->assertJsonCount(0, 'queue.tickets')
+            ->assertJsonPath('queue.positions.0.id', $participantId)
+            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::HealthCheck->value);
         $this->getJson(route('dashboard.data'))
             ->assertOk()
             ->assertJsonPath('metrics.health_check_stage', 1)
@@ -556,7 +551,7 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('data.0.id', $participantId);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonPath('positions.0.position.value', ParticipantStatus::Donating->value);
+            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::Donating->value);
         $this->getJson(route('events.monitor.data', $event))
             ->assertOk()
             ->assertJsonPath('queues.0.active_positions.0.position', ParticipantStatus::Donating->value);
@@ -572,7 +567,7 @@ class OperationalWorkflowTest extends TestCase
             ->assertJsonPath('data.0.id', $participantId);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonCount(0, 'positions');
+            ->assertJsonCount(0, 'queue.positions');
         $this->getJson(route('dashboard.data'))
             ->assertOk()
             ->assertJsonPath('metrics.finished', 1)
@@ -649,9 +644,10 @@ class OperationalWorkflowTest extends TestCase
             $femaleLane['current']['number'],
         );
         $this->assertSame('Perempuan', $femaleLane['label']);
-        $this->assertSame([
+        $this->assertContains(
             ParticipantStatus::Donating->value,
-        ], array_column($femaleLane['active_positions'], 'position'));
+            array_column($femaleLane['active_positions'], 'position'),
+        );
     }
 
     /** @return array{User, Event} */

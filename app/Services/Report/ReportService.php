@@ -48,6 +48,7 @@ class ReportService
                 'donorScreenings.servicePost',
                 'donorScreenings.screenedBy',
                 'queueTickets.event.settings',
+                'queueTickets.eventParticipant.participant',
                 'queueTickets.servicePost',
                 'servicePostSubmissions.servicePost',
                 'servicePostSubmissions.completedBy',

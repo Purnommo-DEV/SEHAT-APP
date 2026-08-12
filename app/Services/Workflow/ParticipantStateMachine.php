@@ -27,7 +27,19 @@ class ParticipantStateMachine
     private function allowedTransitions(ParticipantStatus $status): array
     {
         return match ($status) {
-            ParticipantStatus::Waiting => [ParticipantStatus::HealthCheck, ParticipantStatus::Cancelled],
+            ParticipantStatus::Waiting => [
+                ParticipantStatus::Calling,
+                // Legacy endpoints remain compatible; the operational UI only
+                // exposes health start after a NEXT or GOTO call.
+                ParticipantStatus::HealthCheck,
+                ParticipantStatus::Cancelled,
+            ],
+            ParticipantStatus::Calling => [
+                ParticipantStatus::Waiting,
+                ParticipantStatus::HealthCheck,
+                ParticipantStatus::Donating,
+                ParticipantStatus::Cancelled,
+            ],
             ParticipantStatus::HealthCheck => [ParticipantStatus::Donating, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
             ParticipantStatus::Donating => [ParticipantStatus::Finished, ParticipantStatus::Cancelled],
             ParticipantStatus::Registered => [ParticipantStatus::CheckedIn, ParticipantStatus::WaitingService, ParticipantStatus::Cancelled],

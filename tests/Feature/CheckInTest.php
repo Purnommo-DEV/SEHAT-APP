@@ -181,7 +181,7 @@ class CheckInTest extends TestCase
         $this->assertSame(QueueType::General, $queueTicket->queue_type);
         $this->assertSame(QueueTicketStatus::Waiting, $queueTicket->status);
         $this->assertSame(1, $queueTicket->number);
-        $this->assertSame('001', $queueTicket->formattedNumber());
+        $this->assertSame('L001', $queueTicket->formattedNumber());
         $this->assertDatabaseHas('audit_logs', [
             'event_id' => $event->id,
             'subject_type' => EventParticipant::class,
@@ -191,7 +191,7 @@ class CheckInTest extends TestCase
         EventFacade::assertDispatched(
             ParticipantCheckedIn::class,
             fn (ParticipantCheckedIn $broadcast): bool => $broadcast->eventParticipantId === $eventParticipant->id
-                && $broadcast->queueNumber === '001'
+                && $broadcast->queueNumber === 'L001'
                 && $broadcast->registrationNumber === 'L001'
                 && $broadcast->services === [ParticipantServiceType::HealthCheck->value]
         );
@@ -258,7 +258,7 @@ class CheckInTest extends TestCase
         $this->actingAs($administrator)
             ->getJson(route('events.check-ins.data', $event))
             ->assertOk()
-            ->assertJsonPath('data.0.formatted_number', '001')
+            ->assertJsonPath('data.0.formatted_number', 'L001')
             ->assertJsonPath('data.0.registration_number', 'L001')
             ->assertJsonPath('data.0.participant.id', $participant->id)
             ->assertJsonPath('data.0.participant.gender', $participant->gender->value)

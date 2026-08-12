@@ -19,7 +19,7 @@ class PollingFallbackTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_polling_mode_renders_all_operational_screens_without_initializing_echo(): void
+    public function test_polling_mode_renders_the_single_operational_screen_without_initializing_echo(): void
     {
         config()->set('foundation.realtime.driver', 'polling');
         config()->set('foundation.realtime.polling_interval_ms', 3000);
@@ -27,11 +27,7 @@ class PollingFallbackTest extends TestCase
 
         foreach ([
             route('events.check-ins.index', $event),
-            route('events.operations.waiting', $event),
             route('events.operations.waiting.desk', $event),
-            route('events.operations.health-check', $event),
-            route('events.operations.donating', $event),
-            route('events.operations.completed', $event),
             route('dashboard'),
             route('events.monitor.show', $event),
         ] as $url) {
@@ -41,8 +37,15 @@ class PollingFallbackTest extends TestCase
                 ->assertSee('data-polling-interval-ms="3000"', false);
         }
 
-        $this->get(route('events.operations.before-donor', $event))
-            ->assertRedirect(route('events.operations.health-check', $event));
+        foreach ([
+            route('events.operations.waiting', $event),
+            route('events.operations.health-check', $event),
+            route('events.operations.before-donor', $event),
+            route('events.operations.donating', $event),
+            route('events.operations.completed', $event),
+        ] as $url) {
+            $this->get($url)->assertRedirect(route('events.operations.waiting.desk', $event));
+        }
 
         $this->get(route('events.check-ins.index', $event))
             ->assertSee('Diperbarui berkala setiap 3 detik');
@@ -65,7 +68,7 @@ class PollingFallbackTest extends TestCase
             $event,
             Participant::factory()->create(['gender' => ParticipantGender::Male]),
             null,
-            [ParticipantServiceType::Donor],
+            [ParticipantServiceType::Donor, ParticipantServiceType::HealthCheck],
         );
 
         $this->getJson(route('events.check-ins.data', $event))
@@ -73,19 +76,26 @@ class PollingFallbackTest extends TestCase
             ->assertJsonPath('data.0.participant.id', $registration->eventParticipant->participant_id);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonPath('tickets.0.participant.id', $registration->eventParticipant->participant_id);
+            ->assertJsonPath('queue.tickets.0.participant.id', $registration->eventParticipant->participant_id);
         $this->getJson(route('events.operations.data', [$event, ParticipantStatus::Waiting->value]))
             ->assertOk()
             ->assertJsonPath('data.0.id', $registration->eventParticipant->id);
 
+        $healthPost = ServicePost::query()
+            ->where('event_id', $event->id)
+            ->where('behavior', ServicePostBehavior::HealthForm->value)
+            ->firstOrFail();
+        $this->postJson(route('events.service-queues.call', [$event, $healthPost, $registration->queueTicket]))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'calling');
         $this->postJson(route('events.operations.health-check.start', [$event, $registration->eventParticipant]))
             ->assertOk()
             ->assertJsonPath('data.status', ParticipantStatus::HealthCheck->value);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonCount(0, 'tickets')
-            ->assertJsonPath('positions.0.id', $registration->eventParticipant->id)
-            ->assertJsonPath('positions.0.position.value', ParticipantStatus::HealthCheck->value);
+            ->assertJsonCount(0, 'queue.tickets')
+            ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
+            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::HealthCheck->value);
         $this->getJson(route('events.operations.data', [$event, ParticipantStatus::Waiting->value]))
             ->assertOk()
             ->assertJsonCount(0, 'data');
@@ -102,7 +112,7 @@ class PollingFallbackTest extends TestCase
             ->assertJsonPath('data.status', ParticipantStatus::Donating->value);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonPath('positions.0.position.value', ParticipantStatus::Donating->value);
+            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::Donating->value);
         $this->getJson(route('events.operations.data', [$event, ParticipantStatus::Donating->value]))
             ->assertOk()
             ->assertJsonPath('data.0.id', $registration->eventParticipant->id)

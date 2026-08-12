@@ -4,10 +4,8 @@ namespace App\Http\Resources;
 
 use App\Enums\ParticipantServiceType;
 use App\Enums\ParticipantStatus;
-use App\Enums\QueueType;
 use App\Models\EventParticipant;
 use App\Models\EventParticipantService;
-use App\Models\QueueTicket;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,15 +19,14 @@ class OperationalParticipantResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $donorTicket = $this->donorTicket();
         $hasDonorService = $this->services
             ->contains(fn (EventParticipantService $service): bool => $service->service === ParticipantServiceType::Donor);
+        $hasHealthService = $this->services
+            ->contains(fn (EventParticipantService $service): bool => $service->service === ParticipantServiceType::HealthCheck);
 
         return [
             'id' => $this->id,
-            'number' => $this->formattedDonorNumber($donorTicket)
-                ?? $this->formattedRegistrationNumber($this->event->settings)
-                ?? '-',
+            'number' => $this->formattedRegistrationNumber($this->event->settings) ?? '-',
             'registration_number' => $this->formattedRegistrationNumber($this->event->settings),
             'sort_number' => $this->registration_number,
             'status' => $this->status->value,
@@ -37,6 +34,17 @@ class OperationalParticipantResource extends JsonResource
             'position' => [
                 'value' => $this->status->value,
                 'label' => $this->status->label(),
+            ],
+            'call' => [
+                'is_active' => in_array($this->status, [
+                    ParticipantStatus::Calling,
+                    ParticipantStatus::HealthCheck,
+                    ParticipantStatus::Donating,
+                ], true),
+                'status_label' => $this->status === ParticipantStatus::Calling
+                    ? 'Sedang Dipanggil'
+                    : 'Sedang Diproses',
+                'target_label' => $this->calledTargetLabel($hasDonorService, $hasHealthService),
             ],
             'completed_at' => $this->completed_at?->toIso8601String(),
             'participant' => [
@@ -52,7 +60,9 @@ class OperationalParticipantResource extends JsonResource
                 ])
                 ->values()
                 ->all(),
-            'can_donate' => $this->status === ParticipantStatus::HealthCheck && $hasDonorService,
+            'can_start_health_check' => $this->status === ParticipantStatus::Calling && $hasHealthService,
+            'can_donate' => ($this->status === ParticipantStatus::Calling && $hasDonorService && ! $hasHealthService)
+                || ($this->status === ParticipantStatus::HealthCheck && $hasDonorService),
             'can_complete_before_donation' => $this->status === ParticipantStatus::HealthCheck,
             'can_complete_health_only' => $this->status === ParticipantStatus::HealthCheck && ! $hasDonorService,
             'urls' => [
@@ -65,27 +75,14 @@ class OperationalParticipantResource extends JsonResource
         ];
     }
 
-    private function donorTicket(): ?QueueTicket
+    private function calledTargetLabel(bool $hasDonorService, bool $hasHealthService): string
     {
-        $ticket = $this->queueTickets
-            ->first(fn (QueueTicket $queueTicket): bool => in_array($queueTicket->queue_type, [
-                QueueType::DonorGlobal,
-                QueueType::MaleDonor,
-                QueueType::FemaleDonor,
-            ], true));
-
-        return $ticket instanceof QueueTicket ? $ticket : null;
-    }
-
-    private function formattedDonorNumber(?QueueTicket $ticket): ?string
-    {
-        if (! $ticket instanceof QueueTicket) {
-            return null;
-        }
-
-        $settings = $this->event->settings;
-
-        return $settings->donorPrefix($ticket->queue_type)
-            .str_pad((string) $ticket->number, $settings->donor_queue_digits, '0', STR_PAD_LEFT);
+        return match ($this->status) {
+            ParticipantStatus::Calling => $hasHealthService ? 'Cek Kesehatan' : 'Donor',
+            ParticipantStatus::HealthCheck => 'Cek Kesehatan',
+            ParticipantStatus::Donating => 'Donor',
+            ParticipantStatus::Finished => 'Selesai',
+            default => $hasDonorService && ! $hasHealthService ? 'Donor' : 'Cek Kesehatan',
+        };
     }
 }

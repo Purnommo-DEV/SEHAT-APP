@@ -23,30 +23,27 @@ class OperationalQueueControlTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_operational_areas_are_separate_and_queue_controls_exist_only_on_the_waiting_desk(): void
+    public function test_operational_screen_centralizes_queue_controls_and_legacy_urls_redirect_to_it(): void
     {
         [$event, $post] = $this->activeEventWithControlPost();
         $this->queueTicket($event, $post, ParticipantGender::Male, 1);
         $this->queueTicket($event, $post, ParticipantGender::Female, 2);
 
         $this->get(route('events.operations.index', $event))
-            ->assertRedirect(route('events.operations.waiting', $event));
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
 
         $this->get(route('events.operations.waiting', $event))
-            ->assertOk()
-            ->assertSee('Area Tunggu')
-            ->assertSee('BUKA SCREEN PETUGAS')
-            ->assertSee('CEK KESEHATAN')
-            ->assertDontSee('NEXT')
-            ->assertDontSee('SKIP')
-            ->assertDontSee('GOTO');
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
 
         $this->get(route('events.operations.waiting.desk', $event))
             ->assertOk()
-            ->assertSee('Screen Petugas')
+            ->assertSee('Operasional')
             ->assertSee('NEXT')
             ->assertSee('SKIP')
             ->assertSee('GOTO')
+            ->assertSee('Cek Kesehatan')
+            ->assertSee('Sedang Donor')
+            ->assertSee('Selesai')
             ->assertSee('Cari peserta aktif')
             ->assertSee('type="search"', false)
             ->assertDontSee('name="queue_number"', false)
@@ -54,14 +51,10 @@ class OperationalQueueControlTest extends TestCase
             ->assertSee('Perempuan');
 
         $this->get(route('events.operations.health-check', $event))
-            ->assertOk()
-            ->assertSee('Area Cek Kesehatan')
-            ->assertSee('DONOR')
-            ->assertSee('SELESAI')
-            ->assertDontSee('NEXT');
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
 
         $this->get(route('events.operations.before-donor', $event))
-            ->assertRedirect(route('events.operations.health-check', $event));
+            ->assertRedirect(route('events.operations.waiting.desk', $event));
 
         $this->getJson(route('events.operations.snapshot', $event))
             ->assertOk()
@@ -71,8 +64,8 @@ class OperationalQueueControlTest extends TestCase
 
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonCount(2, 'tickets')
-            ->assertJsonCount(2, 'positions');
+            ->assertJsonCount(2, 'queue.tickets')
+            ->assertJsonCount(2, 'queue.positions');
     }
 
     public function test_waiting_snapshot_offers_only_active_tickets_for_the_goto_selector(): void
@@ -87,10 +80,10 @@ class OperationalQueueControlTest extends TestCase
 
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonCount(1, 'tickets')
-            ->assertJsonPath('tickets.0.id', $active->id)
-            ->assertJsonPath('tickets.0.position.value', ParticipantStatus::Waiting->value)
-            ->assertJsonPath('tickets.0.participant.gender_value', ParticipantGender::Male->value);
+            ->assertJsonCount(1, 'queue.tickets')
+            ->assertJsonPath('queue.tickets.0.id', $active->id)
+            ->assertJsonPath('queue.tickets.0.position.value', ParticipantStatus::Waiting->value)
+            ->assertJsonPath('queue.tickets.0.participant.gender_value', ParticipantGender::Male->value);
     }
 
     public function test_next_skip_and_goto_are_publicly_available_and_keep_ticket_history(): void
@@ -124,7 +117,8 @@ class OperationalQueueControlTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', QueueTicketStatus::Calling->value);
         $this->assertSame(QueueTicketStatus::Calling, $firstMale->refresh()->status);
-        $this->assertSame(ParticipantStatus::Waiting, $firstMale->eventParticipant->refresh()->status);
+        $this->assertSame(ParticipantStatus::Calling, $firstMale->eventParticipant->refresh()->status);
+        $this->assertDatabaseCount('event_participant_status_histories', 3);
     }
 
     public function test_goto_rejects_a_ticket_from_the_other_gender_lane_and_duplicate_next(): void
@@ -149,6 +143,7 @@ class OperationalQueueControlTest extends TestCase
             ->assertJsonValidationErrors('queue_ticket');
 
         $this->assertSame(QueueTicketStatus::Calling, $male->refresh()->status);
+        $this->assertSame(ParticipantStatus::Calling, $male->eventParticipant->refresh()->status);
         $this->assertSame(QueueTicketStatus::Waiting, $otherMale->refresh()->status);
         $this->assertDatabaseCount('audit_logs', 1);
     }

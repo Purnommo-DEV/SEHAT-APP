@@ -54,7 +54,7 @@ class EventManagementTest extends TestCase
             ->get(route('events.index'))
             ->assertOk()
             ->assertSee('Cek Kesehatan Gratis')
-            ->assertSee('Donor global')
+            ->assertSee('Nomor donor mengikuti registrasi')
             ->assertSee('Atur nomor donor');
 
         $this->actingAs($administrator)
@@ -64,9 +64,9 @@ class EventManagementTest extends TestCase
             ->assertSee('Kelola Pos Pelayanan')
             ->assertSee('Tambah Pos Pelayanan')
             ->assertSee('Pengaturan Event')
-            ->assertSee('Mode nomor donor')
+            ->assertSee('Nomor proses donor')
             ->assertSee('Kapasitas donor')
-            ->assertSee('Global');
+            ->assertSee('Mengikuti nomor registrasi peserta');
 
         $this->actingAs($administrator)
             ->get(route('events.edit', $event))

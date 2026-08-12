@@ -100,10 +100,11 @@
                 <div x-show="snapshot.current_positions.length === 0" class="px-6 py-16 text-center text-sm text-slate-500">Belum ada peserta dalam alur pelayanan.</div>
                 <div x-show="snapshot.current_positions.length > 0" x-cloak class="overflow-x-auto">
                     <table class="table min-w-[650px]">
-                        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th>Peserta</th><th>Pos saat ini</th><th>Status</th></tr></thead>
+                            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th>Nomor</th><th>Peserta</th><th>Pos saat ini</th><th>Status</th></tr></thead>
                         <tbody>
                             <template x-for="position in snapshot.current_positions" :key="position.id">
                                 <tr :class="$store.ui.genderCardClass(position.participant_gender)">
+                                    <td><span class="font-mono text-base font-black" :class="$store.ui.genderNumberClass(position.participant_gender)" x-text="position.number ?? '—'"></span></td>
                                     <td>
                                         <p class="font-bold text-slate-900" x-text="position.participant_name"></p>
                                         <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-bold" :class="$store.ui.genderBadgeClass(position.participant_gender)">

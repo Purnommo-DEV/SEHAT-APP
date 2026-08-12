@@ -99,7 +99,7 @@ Route::middleware('throttle:operational')->group(function (): void {
             Route::get('/donating', [OperationalWorkflowController::class, 'donating'])->name('donating');
             Route::get('/completed', [OperationalWorkflowController::class, 'completed'])->name('completed');
             Route::get('/data/{stage}', [OperationalWorkflowController::class, 'data'])
-                ->whereIn('stage', ['waiting', 'health_check', 'donating', 'finished'])
+                ->whereIn('stage', ['waiting', 'calling', 'health_check', 'donating', 'finished'])
                 ->name('data');
             Route::post('/{eventParticipant}/health-check', [OperationalWorkflowController::class, 'startHealthCheck'])
                 ->name('health-check.start');

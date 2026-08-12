@@ -82,8 +82,8 @@
                         <dd class="mt-2 font-semibold text-slate-800">{{ $event->creator->name }}</dd>
                     </div>
                     <div>
-                        <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Mode nomor donor</dt>
-                        <dd class="mt-2 font-semibold text-slate-800">{{ $event->settings->donor_number_mode->label() }}</dd>
+                        <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Nomor proses donor</dt>
+                        <dd class="mt-2 font-semibold text-slate-800">Mengikuti nomor registrasi peserta</dd>
                     </div>
                     <div>
                         <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Kapasitas donor</dt>

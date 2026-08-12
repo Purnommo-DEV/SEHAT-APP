@@ -88,7 +88,7 @@ class DonationCapacityManagementTest extends TestCase
         [$actor, $event] = $this->eventWithCapacityPermission();
 
         $this->actingAs($actor)
-            ->get(route('events.operations.health-check', $event))
+            ->get(route('events.operations.waiting.desk', $event))
             ->assertOk()
             ->assertSee('Kapasitas Donor per Gender')
             ->assertSee('name="donation_capacity_male"', false)
@@ -96,7 +96,7 @@ class DonationCapacityManagementTest extends TestCase
             ->assertSee('SIMPAN KAPASITAS');
 
         $this->actingAs(User::factory()->create())
-            ->get(route('events.operations.health-check', $event))
+            ->get(route('events.operations.waiting.desk', $event))
             ->assertOk()
             ->assertDontSee('SIMPAN KAPASITAS')
             ->assertSee('izin khusus');
