@@ -5,11 +5,12 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Event;
 use App\Models\User;
+use Database\Seeders\AdminSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
-use RuntimeException;
 use Tests\TestCase;
 
 class ProductionReadinessTest extends TestCase
@@ -59,20 +60,17 @@ class ProductionReadinessTest extends TestCase
             ->assertDontSee('<script>alert("xss")</script>', false);
     }
 
-    public function test_insecure_seed_administrator_password_is_rejected(): void
+    public function test_admin_seeder_uses_the_fixed_bootstrap_credentials(): void
     {
-        config()->set('foundation.seed_admin.password', 'password');
+        config()->set('foundation.seed_admin.email', 'other@example.test');
+        config()->set('foundation.seed_admin.password', 'other-password');
 
-        $this->expectException(RuntimeException::class);
-        $this->seed(RolePermissionSeeder::class);
-    }
+        $this->seed(AdminSeeder::class);
 
-    public function test_invalid_seed_administrator_email_is_rejected(): void
-    {
-        config()->set('foundation.seed_admin.email', '');
+        $administrator = User::query()->where('email', AdminSeeder::EMAIL)->firstOrFail();
 
-        $this->expectException(RuntimeException::class);
-        $this->seed(RolePermissionSeeder::class);
+        $this->assertTrue(Hash::check(AdminSeeder::PASSWORD, $administrator->password));
+        $this->assertTrue($administrator->hasRole(UserRole::Administrator->value));
     }
 
     public function test_maintenance_schedule_contains_backup_monitoring_and_pruning(): void

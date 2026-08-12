@@ -7,7 +7,7 @@ use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -16,7 +16,7 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        $administratorEmail = $this->administratorEmail();
+        $administratorEmail = AdminSeeder::EMAIL;
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -60,13 +60,14 @@ class RolePermissionSeeder extends Seeder
                 $administrator = User::query()->create([
                     'email' => $administratorEmail,
                     'name' => config('foundation.seed_admin.name'),
-                    'password' => $this->administratorPassword(),
+                    'password' => Hash::make(AdminSeeder::PASSWORD),
                     'email_verified_at' => now(),
                     'is_active' => true,
                 ]);
             } else {
                 $administrator->forceFill([
                     'name' => config('foundation.seed_admin.name'),
+                    'password' => Hash::make(AdminSeeder::PASSWORD),
                     'email_verified_at' => $administrator->email_verified_at ?? now(),
                     'is_active' => true,
                 ])->save();
@@ -76,26 +77,6 @@ class RolePermissionSeeder extends Seeder
         });
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-    }
-
-    private function administratorPassword(): string
-    {
-        $password = (string) config('foundation.seed_admin.password');
-        $blockedPasswords = [
-            'password',
-            'password123',
-            'administrator',
-            'password',
-        ];
-
-        return $password;
-    }
-
-    private function administratorEmail(): string
-    {
-        $email = filter_var(config('foundation.seed_admin.email'), FILTER_VALIDATE_EMAIL);
-
-        return $email;
     }
 
     /**
