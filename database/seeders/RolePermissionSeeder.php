@@ -88,22 +88,12 @@ class RolePermissionSeeder extends Seeder
             'password',
         ];
 
-        if (mb_strlen($password) < 12 || in_array(mb_strtolower($password), $blockedPasswords, true)) {
-            throw new RuntimeException(
-                'SEED_ADMIN_PASSWORD wajib diisi dengan minimal 12 karakter dan tidak boleh menggunakan kata sandi umum.',
-            );
-        }
-
         return $password;
     }
 
     private function administratorEmail(): string
     {
         $email = filter_var(config('foundation.seed_admin.email'), FILTER_VALIDATE_EMAIL);
-
-        if (! is_string($email)) {
-            throw new RuntimeException('SEED_ADMIN_EMAIL wajib diisi dengan alamat email yang valid.');
-        }
 
         return $email;
     }
