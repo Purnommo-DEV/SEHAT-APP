@@ -20,19 +20,19 @@
 </head>
 <body>
     <h1>Laporan Operasional Event</h1>
-    <p><strong>{{ $snapshot->event->name }}</strong> · {{ $snapshot->event->code }}</p>
-    <p class="muted">{{ $snapshot->event->location }} · Dibuat {{ $generatedAt->translatedFormat('d F Y H:i') }}</p>
+    <p><strong>{{ $snapshot->event->name }}</strong> &middot; {{ $snapshot->event->code }}</p>
+    <p class="muted">{{ $snapshot->event->location }} &middot; Dibuat {{ $generatedAt->translatedFormat('d F Y H:i') }}</p>
 
     <table class="metrics"><tr>
         <td>Jumlah Hadir<strong>{{ $snapshot->metrics['checked_in'] }}</strong></td>
-        <td>Memilih Donor<strong>{{ $snapshot->metrics['selected_donor'] }}</strong></td>
-        <td>Cek Kesehatan<strong>{{ $snapshot->metrics['selected_health_check'] }}</strong></td>
-        <td>Memilih Keduanya<strong>{{ $snapshot->metrics['selected_both'] }}</strong></td>
+        <td>Donor<strong>{{ $snapshot->metrics['donor'] }}</strong></td>
+        <td>Pemeriksaan Kesehatan<strong>{{ $snapshot->metrics['health_check'] }}</strong></td>
+        <td>Donor + Kesehatan<strong>{{ $snapshot->metrics['selected_both'] }}</strong></td>
     </tr><tr>
-        <td>Layak Donor<strong>{{ $snapshot->metrics['eligible_donor'] }}</strong></td>
-        <td>Tidak Layak<strong>{{ $snapshot->metrics['not_eligible_donor'] }}</strong></td>
-        <td>Donor Berhasil<strong>{{ $snapshot->metrics['donor_completed'] }}</strong></td>
-        <td>Pemeriksaan Selesai<strong>{{ $snapshot->metrics['health_check_completed'] }}</strong></td>
+        <td>Donor Saja<strong>{{ $snapshot->metrics['selected_donor_only'] }}</strong></td>
+        <td>Kesehatan Saja<strong>{{ $snapshot->metrics['selected_health_only'] }}</strong></td>
+        <td>Sedang Donor<strong>{{ $snapshot->metrics['donating'] }}</strong></td>
+        <td>Selesai<strong>{{ $snapshot->metrics['finished'] }}</strong></td>
     </tr></table>
 
     <h2>Rekap Peserta</h2>
@@ -42,14 +42,14 @@
             @forelse ($snapshot->records as $record)
                 <tr>
                     <td><strong>{{ $record['registration_number'] }}</strong><br>{{ $record['name'] }}<br>{{ $record['phone'] }}</td>
-                    <td>{{ $record['selected_services_text'] }}<br>Donor: {{ $record['donor_service_status_label'] ?? '—' }}<br>Kesehatan: {{ $record['health_check_status_label'] ?? '—' }}</td>
+                    <td>{{ $record['selected_services_text'] }}<br>Donor: {{ $record['donor_service_status_label'] ?? '-' }}<br>Kesehatan: {{ $record['health_check_status_label'] ?? '-' }}</td>
                     <td>{{ $record['current_post'] }}<br>{{ $record['status_label'] }}</td>
-                    <td>{{ $record['queue_history_text'] ?: '—' }}</td>
+                    <td>{{ $record['queue_history_text'] ?: '-' }}</td>
                     <td>
                         @forelse ($record['service_history'] as $history)
                             <strong>{{ $history['post_name'] }}</strong>: {{ $history['details'] ?? $history['queue_status_label'] }}<br>
                         @empty
-                            —
+                            -
                         @endforelse
                     </td>
                 </tr>

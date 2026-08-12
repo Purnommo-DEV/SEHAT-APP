@@ -20,7 +20,7 @@ class ParticipantService
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function create(array $attributes, User $actor): Participant
+    public function create(array $attributes, ?User $actor): Participant
     {
         /** @var Participant $participant */
         $participant = $this->database->transaction(function () use ($attributes, $actor): Participant {
@@ -88,7 +88,7 @@ class ParticipantService
      */
     private function writeAudit(
         Participant $participant,
-        User $actor,
+        ?User $actor,
         AuditAction $action,
         ?array $oldValues = null,
     ): void {

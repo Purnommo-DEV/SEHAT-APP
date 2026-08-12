@@ -99,7 +99,8 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="rounded-lg bg-slate-100 px-2 py-1 font-mono text-xs font-bold text-slate-600" x-text="event.settings.registration_queue_prefix + String(1).padStart(event.settings.registration_queue_digits, '0')"></span>
+                                    <span class="rounded-lg bg-sky-50 px-2 py-1 font-mono text-xs font-bold text-sky-700" x-text="event.settings.registration_male_prefix + String(1).padStart(event.settings.registration_queue_digits, '0')"></span>
+                                    <span class="ml-1 rounded-lg bg-rose-50 px-2 py-1 font-mono text-xs font-bold text-rose-700" x-text="event.settings.registration_female_prefix + String(1).padStart(event.settings.registration_queue_digits, '0')"></span>
                                     <p class="mt-2 text-xs font-semibold text-slate-500" x-text="event.settings.donor_number_mode === 'global' ? 'Donor global' : 'Donor terpisah L/P'"></p>
                                 </td>
                                 <td>

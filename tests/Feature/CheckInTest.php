@@ -9,7 +9,6 @@ use App\Enums\ParticipantServiceType;
 use App\Enums\ParticipantStatus;
 use App\Enums\QueueTicketStatus;
 use App\Enums\QueueType;
-use App\Enums\RegistrationNumberFormat;
 use App\Enums\ServicePostBehavior;
 use App\Enums\ServicePostType;
 use App\Enums\UserRole;
@@ -21,6 +20,7 @@ use App\Models\QueueTicket;
 use App\Models\ServicePost;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event as EventFacade;
 use Tests\TestCase;
@@ -29,24 +29,21 @@ class CheckInTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guest_and_user_without_permission_cannot_access_check_in(): void
+    public function test_check_in_is_available_without_authentication(): void
     {
         $event = Event::factory()->active()->create();
 
         $this->get(route('events.check-ins.index', $event))
-            ->assertRedirect(route('login'));
+            ->assertOk();
 
         $this->actingAs(User::factory()->create())
             ->get(route('events.check-ins.index', $event))
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_active_check_in_route_returns_to_dashboard_when_no_event_is_active(): void
     {
-        $administrator = $this->administrator();
-
-        $this->actingAs($administrator)
-            ->get(route('check-ins.active'))
+        $this->get(route('check-ins.active'))
             ->assertRedirect(route('dashboard'))
             ->assertSessionHas('status');
     }
@@ -57,10 +54,9 @@ class CheckInTest extends TestCase
         $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
         $this->healthPost($event);
 
-        $response = $this->actingAs($administrator)
-            ->postJson(route('events.check-ins.participants.store', $event), [
-                'name' => '  Peserta   Cepat  ',
-            ])
+        $response = $this->postJson(route('events.check-ins.participants.store', $event), [
+            'name' => '  Peserta   Cepat  ',
+        ])
             ->assertCreated()
             ->assertJsonPath('data.name', 'Peserta Cepat')
             ->assertJsonPath('data.phone', null)
@@ -69,11 +65,10 @@ class CheckInTest extends TestCase
         $participant = Participant::query()->findOrFail($response->json('data.id'));
         $this->assertNull($participant->phone);
 
-        $this->actingAs($administrator)
-            ->postJson(route('events.check-ins.store', $event), [
-                'participant_id' => $participant->id,
-                'services' => [ParticipantServiceType::HealthCheck->value],
-            ])
+        $this->postJson(route('events.check-ins.store', $event), [
+            'participant_id' => $participant->id,
+            'services' => [ParticipantServiceType::HealthCheck->value],
+        ])
             ->assertCreated()
             ->assertJsonPath('data.participant.id', $participant->id)
             ->assertJsonPath('data.participant.gender', ParticipantGender::Male->value);
@@ -162,9 +157,11 @@ class CheckInTest extends TestCase
         EventFacade::fake([ParticipantCheckedIn::class]);
         $administrator = $this->administrator();
         $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
-        $this->useUniformRegistrationNumbers($event);
         $healthPost = $this->healthPost($event);
-        $participant = Participant::factory()->create(['name' => 'Ratna Sehat']);
+        $participant = Participant::factory()->create([
+            'name' => 'Ratna Sehat',
+            'gender' => ParticipantGender::Male,
+        ]);
 
         $response = $this->actingAs($administrator)
             ->post(route('events.check-ins.store', $event), [
@@ -176,10 +173,10 @@ class CheckInTest extends TestCase
         $queueTicket = QueueTicket::query()->firstOrFail();
 
         $response->assertRedirect(route('events.check-ins.show', [$event, $eventParticipant]));
-        $this->assertSame(ParticipantStatus::WaitingHealth, $eventParticipant->status);
+        $this->assertSame(ParticipantStatus::Waiting, $eventParticipant->status);
         $this->assertSame(1, $eventParticipant->services()->count());
         $this->assertSame(1, $eventParticipant->registration_number);
-        $this->assertSame('R001', $eventParticipant->formattedRegistrationNumber($event->settings));
+        $this->assertSame('L001', $eventParticipant->formattedRegistrationNumber($event->settings));
         $this->assertSame($healthPost->id, $eventParticipant->current_service_post_id);
         $this->assertSame(QueueType::General, $queueTicket->queue_type);
         $this->assertSame(QueueTicketStatus::Waiting, $queueTicket->status);
@@ -195,7 +192,7 @@ class CheckInTest extends TestCase
             ParticipantCheckedIn::class,
             fn (ParticipantCheckedIn $broadcast): bool => $broadcast->eventParticipantId === $eventParticipant->id
                 && $broadcast->queueNumber === '001'
-                && $broadcast->registrationNumber === 'R001'
+                && $broadcast->registrationNumber === 'L001'
                 && $broadcast->services === [ParticipantServiceType::HealthCheck->value]
         );
     }
@@ -205,9 +202,9 @@ class CheckInTest extends TestCase
         EventFacade::fake([ParticipantCheckedIn::class]);
         $administrator = $this->administrator();
         $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
-        $this->useUniformRegistrationNumbers($event);
         $this->healthPost($event);
-        [$firstParticipant, $secondParticipant] = Participant::factory()->count(2)->create();
+        $firstParticipant = Participant::factory()->create(['gender' => ParticipantGender::Male]);
+        $secondParticipant = Participant::factory()->create(['gender' => ParticipantGender::Female]);
 
         $this->actingAs($administrator)
             ->post(route('events.check-ins.store', $event), [
@@ -227,7 +224,7 @@ class CheckInTest extends TestCase
                 'services' => [ParticipantServiceType::HealthCheck->value],
             ])
             ->assertRedirect()
-            ->assertSessionHas('status', 'Peserta sudah check-in dengan nomor registrasi R001.');
+            ->assertSessionHas('status', 'Peserta sudah check-in dengan nomor registrasi L001.');
 
         $this->assertDatabaseCount('event_participants', 2);
         $this->assertDatabaseCount('queue_tickets', 2);
@@ -239,10 +236,9 @@ class CheckInTest extends TestCase
     {
         $administrator = $this->administrator();
         $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
-        $this->useUniformRegistrationNumbers($event);
         $otherEvent = Event::factory()->create(['created_by' => $administrator->id]);
         $this->healthPost($event);
-        $participant = Participant::factory()->create();
+        $participant = Participant::factory()->create(['gender' => ParticipantGender::Male]);
 
         $this->actingAs($administrator)
             ->post(route('events.check-ins.store', $event), [
@@ -263,7 +259,7 @@ class CheckInTest extends TestCase
             ->getJson(route('events.check-ins.data', $event))
             ->assertOk()
             ->assertJsonPath('data.0.formatted_number', '001')
-            ->assertJsonPath('data.0.registration_number', 'R001')
+            ->assertJsonPath('data.0.registration_number', 'L001')
             ->assertJsonPath('data.0.participant.id', $participant->id)
             ->assertJsonPath('data.0.participant.gender', $participant->gender->value)
             ->assertJsonPath('data.0.participant.gender_label', $participant->gender->label())
@@ -318,12 +314,7 @@ class CheckInTest extends TestCase
             'active_marker' => null,
         ])->save();
 
-        $this->actingAs($administrator)
-            ->getJson(route('events.check-ins.data', $event))
-            ->assertOk()
-            ->assertJsonPath('meta.workflow.event_active', false)
-            ->assertJsonPath('meta.workflow.event_status', 'completed')
-            ->assertJsonPath('meta.workflow.event_status_label', 'Selesai');
+        $this->getJson(route('events.check-ins.data', $event))->assertNotFound();
     }
 
     public function test_service_post_queue_digit_setting_is_used_by_ticket_formatter(): void
@@ -355,12 +346,137 @@ class CheckInTest extends TestCase
         ]);
     }
 
-    private function useUniformRegistrationNumbers(Event $event): void
+    public function test_existing_event_participant_without_initial_ticket_is_recovered_idempotently(): void
     {
-        $event->settings()->update([
-            'registration_number_format' => RegistrationNumberFormat::Uniform,
+        $event = Event::factory()->active()->create();
+        $healthPost = $this->healthPost($event);
+        $participant = Participant::factory()->create(['gender' => ParticipantGender::Male]);
+        $eventParticipant = EventParticipant::factory()
+            ->for($event)
+            ->for($participant)
+            ->create([
+                'status' => ParticipantStatus::Waiting,
+                'registration_number' => 20,
+                'registration_number_scope' => EventParticipant::registrationNumberScopeFor(ParticipantGender::Male),
+                'active_registration_number' => 20,
+                'checked_in_at' => now(),
+                'current_service_post_id' => $healthPost->id,
+            ]);
+
+        $this->postJson(route('events.check-ins.store', $event), [
+            'participant_id' => $participant->id,
+            'services' => [ParticipantServiceType::HealthCheck->value],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.registration_number', 'L020');
+
+        $this->postJson(route('events.check-ins.store', $event), [
+            'participant_id' => $participant->id,
+            'services' => [ParticipantServiceType::HealthCheck->value],
+        ])->assertOk();
+
+        $this->assertDatabaseCount('participants', 1);
+        $this->assertDatabaseCount('event_participants', 1);
+        $this->assertDatabaseCount('queue_tickets', 1);
+        $this->assertDatabaseCount('event_participant_services', 1);
+        $this->assertDatabaseHas('queue_tickets', [
+            'event_participant_id' => $eventParticipant->id,
+            'service_post_id' => $healthPost->id,
+            'status' => QueueTicketStatus::Waiting->value,
         ]);
-        $event->unsetRelation('settings');
+        $this->assertDatabaseHas('audit_logs', [
+            'subject_type' => EventParticipant::class,
+            'subject_id' => $eventParticipant->id,
+            'action' => AuditAction::ParticipantCheckedIn->value,
+        ]);
+    }
+
+    public function test_registration_numbers_increment_independently_for_each_gender_in_an_event(): void
+    {
+        $event = Event::factory()->active()->create();
+        $this->healthPost($event);
+        $this->createExistingRegistration($event, ParticipantGender::Male, 20);
+        $this->createExistingRegistration($event, ParticipantGender::Female, 19);
+
+        $maleOne = Participant::factory()->create(['gender' => ParticipantGender::Male]);
+        $femaleOne = Participant::factory()->create(['gender' => ParticipantGender::Female]);
+        $maleTwo = Participant::factory()->create(['gender' => ParticipantGender::Male]);
+        $femaleTwo = Participant::factory()->create(['gender' => ParticipantGender::Female]);
+
+        foreach ([$maleOne, $femaleOne, $maleTwo, $femaleTwo] as $participant) {
+            $this->postJson(route('events.check-ins.store', $event), [
+                'participant_id' => $participant->id,
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])->assertCreated();
+        }
+
+        $this->assertSame([21, 22], EventParticipant::query()
+            ->whereIn('participant_id', [$maleOne->id, $maleTwo->id])
+            ->orderBy('registration_number')
+            ->pluck('registration_number')
+            ->all());
+        $this->assertSame([20, 21], EventParticipant::query()
+            ->whereIn('participant_id', [$femaleOne->id, $femaleTwo->id])
+            ->orderBy('registration_number')
+            ->pluck('registration_number')
+            ->all());
+    }
+
+    public function test_missing_registration_number_is_generated_when_a_waiting_record_is_recovered(): void
+    {
+        $event = Event::factory()->active()->create();
+        $healthPost = $this->healthPost($event);
+        $participant = Participant::factory()->create(['gender' => ParticipantGender::Female]);
+        $eventParticipant = EventParticipant::factory()
+            ->for($event)
+            ->for($participant)
+            ->create([
+                'status' => ParticipantStatus::Waiting,
+                'checked_in_at' => now(),
+                'current_service_post_id' => $healthPost->id,
+            ]);
+
+        $this->postJson(route('events.check-ins.store', $event), [
+            'participant_id' => $participant->id,
+            'services' => [ParticipantServiceType::HealthCheck->value],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.registration_number', 'P001');
+
+        $this->assertDatabaseHas('event_participants', [
+            'id' => $eventParticipant->id,
+            'registration_number' => 1,
+            'registration_number_scope' => EventParticipant::registrationNumberScopeFor(ParticipantGender::Female),
+            'active_registration_number' => 1,
+        ]);
+    }
+
+    public function test_registration_number_constraint_allows_matching_male_and_female_numbers_but_rejects_duplicates_in_one_lane(): void
+    {
+        $event = Event::factory()->create();
+        $this->createExistingRegistration($event, ParticipantGender::Male, 1);
+        $this->createExistingRegistration($event, ParticipantGender::Female, 1);
+
+        try {
+            $this->createExistingRegistration($event, ParticipantGender::Male, 1);
+            $this->fail('Constraint nomor registrasi per gender seharusnya menolak duplikasi nomor aktif.');
+        } catch (QueryException) {
+            $this->assertDatabaseCount('event_participants', 2);
+        }
+    }
+
+    private function createExistingRegistration(Event $event, ParticipantGender $gender, int $number): EventParticipant
+    {
+        return EventParticipant::factory()
+            ->for($event)
+            ->for(Participant::factory()->create(['gender' => $gender]))
+            ->create([
+                'status' => ParticipantStatus::Waiting,
+                'registration_number' => $number,
+                'registration_number_scope' => EventParticipant::registrationNumberScopeFor($gender),
+                'active_registration_number' => $number,
+                'checked_in_at' => now(),
+            ]);
     }
 
     private function administrator(): User

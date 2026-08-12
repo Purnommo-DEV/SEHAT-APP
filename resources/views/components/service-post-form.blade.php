@@ -30,7 +30,7 @@
                 <option value="{{ $behavior->value }}" @selected(old('behavior', $servicePost?->behavior?->value ?? \App\Enums\ServicePostBehavior::ConfirmationOnly->value) === $behavior->value)>{{ $behavior->label() }}</option>
             @endforeach
         </select>
-        <span class="label-text-alt mt-2 text-slate-500">Kelayakan, donor, dan kesehatan menjadi tujuan routing berdasarkan layanan peserta.</span>
+        <span class="label-text-alt mt-2 text-slate-500">Pos kesehatan dan donor mendukung alur operasional berdasarkan layanan peserta.</span>
         @error('behavior')<span class="label-text-alt mt-1 text-rose-600">{{ $message }}</span>@enderror
     </label>
 
@@ -72,7 +72,7 @@
         <label class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-700 md:col-span-2">
             <input type="hidden" name="is_active" value="0">
             <input type="checkbox" name="is_active" value="1" class="toggle toggle-success" @checked(old('is_active', $servicePost?->is_active ?? true))>
-            <span><span class="block font-bold">Pos aktif</span><span class="mt-0.5 block text-xs text-slate-500">Sediakan minimal satu pos aktif untuk kelayakan, donor, dan pemeriksaan kesehatan.</span></span>
+            <span><span class="block font-bold">Pos aktif</span><span class="mt-0.5 block text-xs text-slate-500">Sediakan minimal satu pos aktif untuk cek kesehatan dan donor.</span></span>
         </label>
     @endif
 

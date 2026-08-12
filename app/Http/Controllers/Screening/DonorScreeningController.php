@@ -12,19 +12,14 @@ use App\Services\Screening\DonorScreeningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\View\View;
 
 class DonorScreeningController extends Controller
 {
-    public function index(Event $event, DonorScreeningService $screeningService): View
+    public function index(Event $event): RedirectResponse
     {
         $this->authorize('viewAny', DonorScreening::class);
-        $participants = $screeningService->participantsForEvent($event);
 
-        return view('screening.index', [
-            'event' => $event,
-            'participantsJson' => ScreeningParticipantResource::collection($participants)->resolve(),
-        ]);
+        return redirect()->route('events.operations.health-check', $event);
     }
 
     public function data(

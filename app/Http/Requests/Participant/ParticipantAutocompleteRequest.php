@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Participant;
 
+use App\Models\Event;
 use App\Models\Participant;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -9,7 +10,8 @@ class ParticipantAutocompleteRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('viewAny', Participant::class) ?? false;
+        return $this->route('event') instanceof Event
+            || ($this->user()?->can('viewAny', Participant::class) ?? false);
     }
 
     /**

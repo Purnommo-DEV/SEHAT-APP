@@ -252,8 +252,7 @@ class HealthAssessmentTest extends TestCase
 
         $this->actingAs($administrator)
             ->get(route('events.health.index', $event))
-            ->assertOk()
-            ->assertSee('Antrean Pemeriksaan');
+            ->assertRedirect(route('events.operations.health-check', $event));
 
         $this->actingAs($administrator)
             ->getJson(route('events.health.data', $event))

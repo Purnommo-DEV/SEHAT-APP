@@ -120,7 +120,7 @@ class RealtimeBroadcastContractTest extends TestCase
     {
         yield 'event lifecycle' => [
             new EventLifecycleUpdated(41, AuditAction::EventUpdated),
-            ['private-events', 'private-events.41'],
+            ['operational', 'private-events', 'private-events.41'],
             'event.lifecycle.updated',
             ['event_id' => 41, 'action' => AuditAction::EventUpdated->value],
         ];
@@ -134,7 +134,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant check-in' => [
             new ParticipantCheckedIn(41, 52, 53, 'K001', 'R001', ['donor', 'health_check']),
-            'private-events.41',
+            'events.41',
             'participant.checked-in',
             [
                 'event_id' => 41,
@@ -159,7 +159,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'dynamic service queue' => [
             new ServiceQueueUpdated(41, 61, 62, AuditAction::ServicePostCompleted, 63),
-            'private-events.41',
+            'events.41',
             'service.queue.updated',
             [
                 'event_id' => 41,
@@ -213,7 +213,7 @@ class RealtimeBroadcastContractTest extends TestCase
     {
         yield 'participant registered' => [
             new ParticipantRegistered(41, 52, 53, 61),
-            'private-events.41',
+            'events.41',
             'participant.registered',
             [
                 'event_id' => 41,
@@ -225,7 +225,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant moved to eligibility' => [
             new ParticipantMovedToEligibility(41, 52, 53, 61),
-            'private-events.41',
+            'events.41',
             'participant.moved-to-eligibility',
             [
                 'event_id' => 41,
@@ -237,7 +237,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant eligible' => [
             new ParticipantEligible(41, 52, 53, 62),
-            'private-events.41',
+            'events.41',
             'participant.eligible',
             [
                 'event_id' => 41,
@@ -249,7 +249,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant ineligible' => [
             new ParticipantIneligible(41, 52, 53, null),
-            'private-events.41',
+            'events.41',
             'participant.ineligible',
             [
                 'event_id' => 41,
@@ -261,7 +261,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant moved to donation' => [
             new ParticipantMovedToDonation(41, 52, 73, 62),
-            'private-events.41',
+            'events.41',
             'participant.moved-to-donation',
             [
                 'event_id' => 41,
@@ -273,7 +273,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant donation completed' => [
             new ParticipantDonationCompleted(41, 52, 63, 64),
-            'private-events.41',
+            'events.41',
             'participant.donation-completed',
             [
                 'event_id' => 41,
@@ -285,7 +285,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant moved to health check' => [
             new ParticipantMovedToHealthCheck(41, 52, 75, 64),
-            'private-events.41',
+            'events.41',
             'participant.moved-to-health-check',
             [
                 'event_id' => 41,
@@ -297,7 +297,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'participant health check completed' => [
             new ParticipantHealthCheckCompleted(41, 52, 65, null),
-            'private-events.41',
+            'events.41',
             'participant.health-check-completed',
             [
                 'event_id' => 41,
@@ -309,7 +309,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'queue updated' => [
             new QueueUpdated(41, 'service_post_completed', 52, 53, 61),
-            'private-events.41',
+            'events.41',
             'queue.updated',
             [
                 'event_id' => 41,
@@ -322,7 +322,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'dashboard updated' => [
             new DashboardUpdated(41, 'service_post_completed', 52, 53, 61),
-            'private-events.41',
+            'events.41',
             'dashboard.updated',
             [
                 'event_id' => 41,
@@ -335,7 +335,7 @@ class RealtimeBroadcastContractTest extends TestCase
 
         yield 'tv monitor updated' => [
             new TVMonitorUpdated(41, 'service_post_completed', 52, 53, 61),
-            'private-events.41',
+            'events.41',
             'tv-monitor.updated',
             [
                 'event_id' => 41,

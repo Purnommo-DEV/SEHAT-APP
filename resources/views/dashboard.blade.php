@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.operational')
 
 @section('title', 'Dashboard')
 @section('page-title', 'Dashboard')
@@ -39,6 +39,28 @@
                     </div>
                 </article>
             </template>
+        </section>
+
+        <section x-show="snapshot.event" x-cloak class="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm sm:p-6">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">Kapasitas Donor per Gender</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-500">Peserta sedang donor dan slot tersisa.</p>
+                </div>
+                <span class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700">Total <span x-text="snapshot.donation_capacity.total.active"></span> / <span x-text="snapshot.donation_capacity.total.capacity"></span></span>
+            </div>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <template x-for="lane in [snapshot.donation_capacity.male, snapshot.donation_capacity.female]" :key="lane.gender">
+                    <article class="rounded-2xl border p-4" :class="lane.gender === 'male' ? 'border-indigo-100 bg-indigo-50/60' : 'border-rose-100 bg-rose-50/60'">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="font-extrabold text-slate-900" x-text="lane.label"></p>
+                            <span class="rounded-full px-2.5 py-1 text-xs font-black" :class="lane.is_full ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'" x-text="lane.is_full ? 'PENUH' : 'TERSEDIA'"></span>
+                        </div>
+                        <p class="mt-3 text-3xl font-black text-slate-900"><span x-text="lane.active"></span> / <span x-text="lane.capacity"></span></p>
+                        <p class="mt-1 text-sm font-semibold text-slate-500"><span x-text="lane.available"></span> slot tersedia</p>
+                    </article>
+                </template>
+            </div>
         </section>
 
         <section x-show="snapshot.event && snapshot.post_metrics.length > 0" x-cloak class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

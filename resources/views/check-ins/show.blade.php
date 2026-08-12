@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.operational')
 
 @section('title', 'Tiket Registrasi '.$eventParticipant->formattedRegistrationNumber($event->settings))
 @section('page-title', 'Tiket Registrasi')

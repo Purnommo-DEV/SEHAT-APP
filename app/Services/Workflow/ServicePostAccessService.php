@@ -14,7 +14,7 @@ class ServicePostAccessService
     /**
      * @return Collection<int, ServicePost>
      */
-    public function postsForUser(Event $event, User $user): Collection
+    public function postsForUser(Event $event, ?User $user): Collection
     {
         $posts = ServicePost::query()
             ->where('event_id', $event->id)
@@ -23,7 +23,7 @@ class ServicePostAccessService
             ->orderBy('sequence')
             ->get();
 
-        if ($user->can(PermissionName::ManageEvents->value)) {
+        if ($user === null || $user->can(PermissionName::ManageEvents->value)) {
             return $posts;
         }
 
@@ -32,8 +32,12 @@ class ServicePostAccessService
             ->values();
     }
 
-    public function canManage(ServicePost $servicePost, User $user): bool
+    public function canManage(ServicePost $servicePost, ?User $user): bool
     {
+        if ($user === null) {
+            return $servicePost->is_active;
+        }
+
         if ($user->can(PermissionName::ManageEvents->value)) {
             return true;
         }

@@ -4,6 +4,7 @@ namespace App\Services\Event;
 
 use App\Enums\AuditAction;
 use App\Enums\EventStatus;
+use App\Enums\ParticipantGender;
 use App\Enums\ParticipantServiceStatus;
 use App\Enums\QueueTicketStatus;
 use App\Events\EventLifecycleUpdated;
@@ -39,6 +40,10 @@ class EventService
             $event->save();
 
             $event->settings()->create();
+            $event->donationCapacityLanes()->createMany([
+                ['gender' => ParticipantGender::Male],
+                ['gender' => ParticipantGender::Female],
+            ]);
             $event->load('settings');
 
             $this->writeAudit($event, $actor, AuditAction::EventCreated);
@@ -96,6 +101,8 @@ class EventService
                 'donor_number_mode',
                 'donor_queue_prefix',
                 'donor_queue_digits',
+                'donation_capacity_male',
+                'donation_capacity_female',
                 'general_queue_digits',
                 'male_donor_queue_prefix',
                 'female_donor_queue_prefix',
@@ -113,6 +120,8 @@ class EventService
                 'donor_number_mode',
                 'donor_queue_prefix',
                 'donor_queue_digits',
+                'donation_capacity_male',
+                'donation_capacity_female',
                 'general_queue_digits',
                 'male_donor_queue_prefix',
                 'female_donor_queue_prefix',

@@ -13,20 +13,14 @@ use App\Services\Workflow\ServiceQueueService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\View\View;
 
 class DonorQueueController extends Controller
 {
-    public function index(Event $event, DonorQueueService $donorQueueService): View
+    public function index(Event $event): RedirectResponse
     {
         $this->authorize('viewDonationQueue', QueueTicket::class);
-        $event->load('settings');
-        $tickets = $donorQueueService->ticketsForEvent($event);
 
-        return view('donation.index', [
-            'event' => $event,
-            'ticketsJson' => DonorQueueTicketResource::collection($tickets)->resolve(),
-        ]);
+        return redirect()->route('events.operations.health-check', $event);
     }
 
     public function data(

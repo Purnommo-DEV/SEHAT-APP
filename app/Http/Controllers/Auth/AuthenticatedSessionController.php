@@ -28,6 +28,7 @@ class AuthenticatedSessionController extends Controller
         );
 
         $destination = match (true) {
+            $request->user()->can(PermissionName::AccessAdministration->value) => route('admin.dashboard'),
             $request->user()->can(PermissionName::ViewDashboard->value) => route('dashboard'),
             $request->user()->can(PermissionName::ManageCheckIn->value) => route('check-ins.active'),
             $request->user()->can(PermissionName::ManageOwnQueue->value) => route('queues.active'),

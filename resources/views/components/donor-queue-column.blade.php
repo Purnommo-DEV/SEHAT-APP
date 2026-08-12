@@ -21,7 +21,7 @@
 
     <div x-show="ticketsFor(@js($queueType)).length === 0" class="px-6 py-14 text-center">
         <p class="font-bold text-slate-700">Antrean kosong</p>
-        <p class="mt-1 text-sm text-slate-500">Nomor diterbitkan setelah peserta dinyatakan layak.</p>
+        <p class="mt-1 text-sm text-slate-500">Nomor diterbitkan saat peserta masuk proses donor.</p>
     </div>
 
     <ol x-show="ticketsFor(@js($queueType)).length > 0" x-cloak class="divide-y divide-slate-100">

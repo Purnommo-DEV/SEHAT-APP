@@ -12,18 +12,20 @@ class DashboardAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guest_is_redirected_to_login(): void
+    public function test_dashboard_is_public_for_operational_panitia(): void
     {
-        $this->get(route('dashboard'))->assertRedirect(route('login'));
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Belum ada event aktif');
     }
 
-    public function test_user_without_dashboard_permission_is_forbidden(): void
+    public function test_dashboard_stays_public_for_an_authenticated_user_without_permissions(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get(route('dashboard'))
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_authorized_user_can_view_dashboard(): void
@@ -39,5 +41,14 @@ class DashboardAccessTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Belum ada event aktif');
+    }
+
+    public function test_event_management_remains_protected_by_authentication_and_permission(): void
+    {
+        $this->get(route('events.index'))->assertRedirect(route('login'));
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('events.index'))
+            ->assertForbidden();
     }
 }

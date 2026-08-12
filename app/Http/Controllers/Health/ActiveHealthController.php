@@ -9,6 +9,6 @@ class ActiveHealthController extends Controller
 {
     public function __invoke(): RedirectResponse
     {
-        return redirect()->route('queues.active');
+        return redirect()->route('operations.active');
     }
 }

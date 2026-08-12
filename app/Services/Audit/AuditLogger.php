@@ -14,7 +14,7 @@ class AuditLogger
      * @param  array<string, mixed>|null  $newValues
      */
     public function record(
-        User $actor,
+        ?User $actor,
         Model $subject,
         AuditAction $action,
         ?int $eventId,
@@ -23,7 +23,7 @@ class AuditLogger
     ): AuditLog {
         return AuditLog::query()->create([
             'event_id' => $eventId,
-            'user_id' => $actor->id,
+            'user_id' => $actor?->id,
             'action' => $action,
             'subject_type' => $subject::class,
             'subject_id' => $subject->getKey(),

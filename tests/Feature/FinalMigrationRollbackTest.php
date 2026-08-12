@@ -48,10 +48,36 @@ class FinalMigrationRollbackTest extends TestCase
             [ParticipantServiceType::HealthCheck],
         );
 
-        $this->assertSame(
-            $cancelled->eventParticipant->registration_number,
-            $replacement->eventParticipant->registration_number,
+        $this->assertSame(1, $cancelled->eventParticipant->registration_number);
+        $this->assertSame(1, $replacement->eventParticipant->registration_number);
+
+        $scopeMigration = require database_path(
+            'migrations/2026_08_12_000031_scope_registration_numbers_by_event_and_gender.php',
         );
+        $capacityMigration = require database_path(
+            'migrations/2026_08_12_000032_add_donation_capacity_to_event_settings.php',
+        );
+        $genderCapacityMigration = require database_path(
+            'migrations/2026_08_12_000033_add_gender_donation_capacities.php',
+        );
+        $genderCapacityMigration->down();
+        $this->assertFalse(Schema::hasTable('event_donation_capacity_lanes'));
+        $this->assertFalse(Schema::hasColumn('event_settings', 'donation_capacity_male'));
+        $this->assertFalse(Schema::hasColumn('event_settings', 'donation_capacity_female'));
+
+        $event->settings()->update(['donation_capacity' => 7]);
+        $genderCapacityMigration->up();
+        $this->assertDatabaseHas('event_settings', [
+            'event_id' => $event->id,
+            'donation_capacity_male' => 7,
+            'donation_capacity_female' => 7,
+        ]);
+        $this->assertDatabaseCount('event_donation_capacity_lanes', 2);
+        $genderCapacityMigration->down();
+
+        $capacityMigration->down();
+        $this->assertFalse(Schema::hasColumn('event_settings', 'donation_capacity'));
+        $scopeMigration->down();
 
         $migration = require database_path(
             'migrations/2026_07_30_000025_finalize_sop_numbering_and_timestamps.php',

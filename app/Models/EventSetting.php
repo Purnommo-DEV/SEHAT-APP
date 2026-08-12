@@ -21,6 +21,12 @@ use Illuminate\Support\Carbon;
  * @property DonorNumberMode $donor_number_mode
  * @property string $donor_queue_prefix
  * @property int $donor_queue_digits
+ * @property int $donation_capacity_male
+ * @property int $donation_capacity_female
+ *
+ * @deprecated Kept only for backward compatibility with legacy integrations.
+ *
+ * @property int $donation_capacity
  * @property int $general_queue_digits
  * @property string $male_donor_queue_prefix
  * @property string $female_donor_queue_prefix
@@ -41,6 +47,9 @@ class EventSetting extends Model
         'donor_number_mode',
         'donor_queue_prefix',
         'donor_queue_digits',
+        'donation_capacity_male',
+        'donation_capacity_female',
+        'donation_capacity',
         'general_queue_digits',
         'male_donor_queue_prefix',
         'female_donor_queue_prefix',
@@ -54,15 +63,14 @@ class EventSetting extends Model
         return [
             'registration_number_format' => RegistrationNumberFormat::class,
             'donor_number_mode' => DonorNumberMode::class,
+            'donation_capacity_male' => 'integer',
+            'donation_capacity_female' => 'integer',
+            'donation_capacity' => 'integer',
         ];
     }
 
     public function registrationPrefix(ParticipantGender $gender): string
     {
-        if ($this->registration_number_format === RegistrationNumberFormat::Uniform) {
-            return $this->registration_queue_prefix;
-        }
-
         return match ($gender) {
             ParticipantGender::Male => $this->registration_male_prefix,
             ParticipantGender::Female => $this->registration_female_prefix,

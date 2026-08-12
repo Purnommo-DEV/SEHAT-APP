@@ -1,134 +1,56 @@
 # SEHAT-APP
 
-SEHAT-APP adalah aplikasi operasional panitia donor darah dan pemeriksaan kesehatan. Aplikasi mengikuti SOP lapangan: registrasi, pemilihan layanan, pemeriksaan kelayakan donor, donor bagi peserta yang layak, pemeriksaan kesehatan sesuai pilihan peserta, laporan, dashboard, dan TV Monitor realtime.
+SEHAT-APP adalah sistem operasional panitia donor darah dan pemeriksaan kesehatan berbasis Laravel 12. Workflow aktif mengikuti SOP UAT final:
 
-Dokumen ini dan dokumen final di folder [`docs`](docs) adalah sumber kebenaran implementasi. Dokumen `slice-*` dipertahankan sebagai riwayat pengembangan dan bukan definisi workflow aktif.
+```text
+MENUNGGU → CEK KESEHATAN → SEDANG DONOR → SELESAI
+```
 
-## Workflow resmi
+Peserta memilih layanan Donor Darah, Pemeriksaan Kesehatan, atau keduanya saat registrasi. Layanan yang dipilih disimpan terpisah dari status operasional. Peserta kesehatan-saja diselesaikan dari tahap Cek Kesehatan tanpa masuk donor.
 
-Peserta memperoleh satu nomor registrasi dari urutan numerik global event, kemudian memilih satu atau kedua layanan:
+## Fitur operasional
 
-- Donor Darah
-- Pemeriksaan Kesehatan
+- Registrasi cepat dengan nomor registrasi global yang memakai angka kosong terkecil.
+- Area kerja panitia yang terpisah: **Menunggu**, **Cek Kesehatan**, **Sedang Donor**, dan **Selesai**. Peserta berpindah antar-area, bukan hilang dari pemantauan sebelum selesai.
+- **Screen Petugas** khusus menyediakan Next, Skip, dan Goto per gender serta posisi terkini seluruh peserta aktif.
+- Nomor donor diterbitkan saat aksi **Donor**, dengan mode event Global (`D001`) atau Terpisah Laki-laki/Perempuan (`L001`, `P001`).
+- Setiap event memiliki kapasitas bed donor **per gender** (default **4** laki-laki dan **4** perempuan). Laki-laki 4/4 tidak membatasi perempuan; hanya lane yang penuh tetap di Cek Kesehatan sampai donor pada gender yang sama selesai.
+- Administrator, atau petugas dengan permission `event.update_donation_capacity`, dapat memperbarui dua kapasitas saat event aktif. Perubahan diaudit dan tersinkron ke seluruh layar tanpa reload.
+- Administrator dengan permission `event.reset_queue` dapat memakai **Danger Zone** pada Pengaturan Event untuk mengosongkan data operasional satu event. Master peserta, konfigurasi nomor, pos, kapasitas, dan jejak audit tetap tersimpan; registrasi berikutnya kembali memakai nomor awal yang dikonfigurasi.
+- Transaction, row lock, validasi transisi, status history, dan audit log pada setiap aksi perubahan status.
+- Dashboard read-only, TV Monitor read-only, dan laporan.
+- Laravel Reverb + Echo untuk realtime; polling ringan tanpa reload bila `REALTIME_DRIVER=polling`.
 
-Alurnya:
+## Akses
 
-- Donor saja: registrasi → kelayakan donor → donor jika layak → selesai.
-- Pemeriksaan kesehatan saja: registrasi → pemeriksaan kesehatan → selesai.
-- Donor dan pemeriksaan kesehatan: registrasi → kelayakan donor → donor jika layak → pemeriksaan kesehatan → selesai.
-- Donor tidak layak: nomor donor tidak diterbitkan; peserta menuju pemeriksaan kesehatan hanya jika layanan tersebut dipilih.
+Panitia operasional tidak memakai login. Menu panitia terdiri dari Registrasi, Menunggu, Cek Kesehatan, Sedang Donor, Selesai, Screen Petugas, Dashboard, dan TV Monitor untuk event yang sedang aktif. Next, Skip, dan Goto hanya tersedia pada Screen Petugas; tiap area proses berikutnya mempunyai layar khusus agar petugas tidak mencampurkan tugas. Seluruh mutation tetap melalui middleware `web` (CSRF), rate limit, validasi Form Request, route model binding berscope event, transaction, dan row lock.
 
-Nomor donor baru dibuat setelah hasil kelayakan adalah `eligible`. Mode nomor donor dikonfigurasi per event: satu antrean global atau antrean terpisah laki-laki/perempuan. Nomor aktif yang dilepas karena pembatalan dapat digunakan kembali; histori nomor lama tetap disimpan.
+Area manajemen tetap membutuhkan autentikasi dan permission: Event, master peserta, pos pelayanan, laporan, konfigurasi, serta administrasi pengguna/role.
 
-## Fitur utama
+## Menjalankan lokal
 
-- Authentication dan role-based navigation untuk panitia.
-- CRUD Event, pengaturan nomor, dan satu event aktif.
-- Master peserta, pencarian, dan autocomplete.
-- Registrasi cepat dari drawer tanpa meninggalkan meja registrasi; hanya nama yang wajib dan nomor HP dapat dikosongkan.
-- Live search peserta dengan debounce 300 ms, urutan relevansi, navigasi keyboard, dan maksimal 10 hasil.
-- Konfigurasi Pos Pelayanan berdasarkan `behavior`, bukan nama/kode pos.
-- Registrasi ulang dengan pilihan layanan.
-- Pemeriksaan kelayakan, antrean donor, dan pemeriksaan kesehatan.
-- Nomor registrasi global serta nomor donor global/terpisah gender.
-- Card antrean responsif dan berkode warna gender pada seluruh meja operasional.
-- Dashboard, antrean petugas, TV Monitor informatif, dan laporan realtime tanpa polling.
-- Export Excel dan PDF.
-- Audit log, policy, Form Request, transaksi, row lock, dan constraint database.
-- Backup terjadwal, readiness endpoint, rate limiting, queue worker, dan Reverb.
-
-## UX operasional
-
-Meja registrasi dirancang untuk alur berulang dengan keyboard. Fokus awal berada pada kolom pencarian; setelah check-in berhasil form di-reset dan fokus kembali ke pencarian. Peserta yang tidak ditemukan dapat dibuat melalui drawer mobile dengan nama terisi dari kata pencarian, lalu otomatis dipilih pada form check-in.
-
-Pemeriksaan kesehatan adalah konfirmasi layanan, bukan rekam medis. Petugas hanya memanggil, memulai, lalu menekan **Selesaikan Pemeriksaan**. Kolom medis lama tetap nullable di database untuk kompatibilitas histori dan API, tetapi tidak ditampilkan atau diwajibkan pada UI operasional.
-
-TV Monitor menampilkan nomor, nama, layanan, status, dan instruksi pos tujuan. Semua meja, dashboard, serta monitor menerima pembaruan melalui Echo/Reverb tanpa polling atau reload halaman.
-
-## Teknologi
-
-- PHP 8.3+
-- Laravel 12
-- MySQL 8+ dengan InnoDB
-- Redis untuk queue, cache, session, dan opsi scaling Reverb
-- Laravel Reverb dan Laravel Echo
-- Vite, Tailwind CSS, DaisyUI, dan Alpine.js
-- Spatie Laravel Permission dan Spatie Laravel Backup
-- PHPUnit, Laravel Pint, Larastan/PHPStan, dan ESLint
-
-## Menjalankan secara lokal
-
-Pastikan PHP 8.3 dari Laravel Herd, Composer, Node.js, npm, serta MySQL tersedia.
+Gunakan PHP 8.3 Herd secara eksplisit bila PATH terminal masih menunjuk versi lain:
 
 ```powershell
-composer install
+C:\Users\Kelascom\.config\herd\bin\php83\php.exe artisan migrate
+C:\Users\Kelascom\.config\herd\bin\php83\php.exe artisan db:seed --class=RolePermissionSeeder
 npm install
-Copy-Item .env.example .env
-php artisan key:generate
-```
-
-Sesuaikan `.env` untuk lokal. Contoh minimum:
-
-```dotenv
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://127.0.0.1:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=sehat_app
-DB_USERNAME=root
-DB_PASSWORD=
-
-CACHE_STORE=database
-SESSION_DRIVER=database
-QUEUE_CONNECTION=database
-BROADCAST_CONNECTION=reverb
-
-REVERB_HOST=127.0.0.1
-REVERB_PORT=8080
-REVERB_SCHEME=http
-REVERB_SERVER_HOST=0.0.0.0
-REVERB_SERVER_PORT=8080
-REVERB_ALLOWED_ORIGINS=127.0.0.1
-
-VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
-VITE_REVERB_HOST="${REVERB_HOST}"
-VITE_REVERB_PORT="${REVERB_PORT}"
-VITE_REVERB_SCHEME="${REVERB_SCHEME}"
-```
-
-Lanjutkan instalasi:
-
-```powershell
-php artisan migrate
-php artisan db:seed --class=RolePermissionSeeder
-npm run build
-```
-
-`SEED_ADMIN_EMAIL` harus valid. Pada instalasi baru, `SEED_ADMIN_PASSWORD` wajib diisi, minimal 12 karakter, dan bukan kata sandi umum. Menjalankan ulang seeder hanya menyinkronkan role/permission dan tidak mengubah password administrator yang sudah ada.
-
-Untuk development, jalankan seluruh proses melalui:
-
-```powershell
-composer dev
-```
-
-Atau jalankan proses berikut pada terminal terpisah:
-
-```powershell
-php artisan queue:work --queue=broadcasts,default --tries=3 --backoff=2 --timeout=120
-php artisan reverb:start
 npm run dev
 ```
 
-Jika tidak memakai web server Herd untuk project ini, jalankan juga `php artisan serve`.
-
-## Quality gates
+Untuk realtime lokal, jalankan pada terminal terpisah:
 
 ```powershell
-php artisan test
+C:\Users\Kelascom\.config\herd\bin\php83\php.exe artisan queue:work --queue=broadcasts,default --tries=3 --backoff=2 --timeout=120
+C:\Users\Kelascom\.config\herd\bin\php83\php.exe artisan reverb:start
+```
+
+Set `.env` dengan `REALTIME_DRIVER=reverb` untuk Reverb, atau `REALTIME_DRIVER=polling` pada shared hosting. Lihat [Realtime Guide](docs/realtime.md) dan [Polling Fallback Guide](docs/polling-fallback.md).
+
+## Quality gate
+
+```powershell
+C:\Users\Kelascom\.config\herd\bin\php83\php.exe artisan test
 vendor\bin\pint.bat --test
 vendor\bin\phpstan.bat analyse --memory-limit=1G
 npm run lint
@@ -138,14 +60,14 @@ composer audit --locked --abandoned=report
 npm audit --audit-level=high
 ```
 
-## Dokumentasi
+## Dokumentasi aktif
 
-- [Workflow bisnis dan state](docs/business-workflow.md)
-- [ERD final](docs/erd.md)
-- [Architecture diagram](docs/architecture.md)
-- [Database documentation](docs/database.md)
-- [Production deployment guide](docs/production-deployment.md)
-- [Final Master Refactor Report](docs/final-master-refactor-report.md)
-- [Catatan kompatibilitas dokumen workflow lama](docs/dynamic-event-workflow.md)
+- [Workflow dan state](docs/business-workflow.md)
+- [ERD](docs/erd.md)
+- [Arsitektur](docs/architecture.md)
+- [Database](docs/database.md)
+- [Deployment](docs/production-deployment.md)
+- [Realtime](docs/realtime.md)
+- [Polling fallback](docs/polling-fallback.md)
 
-Untuk production, jangan gunakan konfigurasi lokal di atas. Gunakan Redis, HTTPS/WSS, storage backup durable, process supervisor, dan checklist pada [Production Deployment Guide](docs/production-deployment.md).
+Dokumen `slice-*`, `dynamic-event-workflow.md`, dan `final-master-refactor-report.md` adalah riwayat pengembangan, bukan definisi workflow aktif.

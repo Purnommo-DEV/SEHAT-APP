@@ -11,22 +11,22 @@ enum ParticipantServiceType: string
     {
         return match ($this) {
             self::Donor => 'Donor Darah',
-            self::HealthCheck => 'Cek Kesehatan',
+            self::HealthCheck => 'Pemeriksaan Kesehatan',
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::Donor => 'Pemeriksaan kelayakan lalu donor jika layak.',
-            self::HealthCheck => 'Langsung dilayani, atau setelah donor bila keduanya dipilih.',
+            self::Donor => 'Mengikuti tahap menunggu, cek kesehatan, lalu proses donor.',
+            self::HealthCheck => 'Mengikuti alur pemeriksaan kesehatan tanpa form medis.',
         };
     }
 
     public function entryBehavior(): ServicePostBehavior
     {
         return match ($this) {
-            self::Donor => ServicePostBehavior::ScreeningForm,
+            self::Donor => ServicePostBehavior::HealthForm,
             self::HealthCheck => ServicePostBehavior::HealthForm,
         };
     }
@@ -38,7 +38,7 @@ enum ParticipantServiceType: string
     {
         return match ($this) {
             self::Donor => [
-                ServicePostBehavior::ScreeningForm,
+                ServicePostBehavior::HealthForm,
                 ServicePostBehavior::DonationForm,
             ],
             self::HealthCheck => [
@@ -60,19 +60,11 @@ enum ParticipantServiceType: string
      */
     public function initialStatus(array $selectedServices): ParticipantServiceStatus
     {
-        return match ($this) {
-            self::Donor => ParticipantServiceStatus::WaitingScreening,
-            self::HealthCheck => in_array(self::Donor, $selectedServices, true)
-                ? ParticipantServiceStatus::Pending
-                : ParticipantServiceStatus::WaitingHealthCheck,
-        };
+        return ParticipantServiceStatus::Pending;
     }
 
     public function initialParticipantStatus(): ParticipantStatus
     {
-        return match ($this) {
-            self::Donor => ParticipantStatus::WaitingScreening,
-            self::HealthCheck => ParticipantStatus::WaitingHealth,
-        };
+        return ParticipantStatus::Waiting;
     }
 }

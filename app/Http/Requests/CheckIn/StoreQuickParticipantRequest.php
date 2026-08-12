@@ -3,7 +3,7 @@
 namespace App\Http\Requests\CheckIn;
 
 use App\Enums\ParticipantGender;
-use App\Enums\PermissionName;
+use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,7 +11,7 @@ class StoreQuickParticipantRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can(PermissionName::ManageCheckIn->value) ?? false;
+        return $this->route('event') instanceof Event;
     }
 
     /**

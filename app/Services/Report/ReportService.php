@@ -71,6 +71,8 @@ class ReportService
             fn (EventParticipant $participant): bool => $this->hasService($participant, ParticipantServiceType::Donor)
                 && $this->hasService($participant, ParticipantServiceType::HealthCheck),
         )->count();
+        $selectedDonorOnly = $selectedDonor - $selectedBoth;
+        $selectedHealthOnly = $selectedHealthCheck - $selectedBoth;
         $screeningResultCounts = $participants
             ->map(
                 fn (EventParticipant $participant): ?string => $this
@@ -105,6 +107,8 @@ class ReportService
                 'selected_donor' => $selectedDonor,
                 'selected_health_check' => $selectedHealthCheck,
                 'selected_both' => $selectedBoth,
+                'selected_donor_only' => $selectedDonorOnly,
+                'selected_health_only' => $selectedHealthOnly,
                 'donor' => $donor,
                 'health_check' => $healthCheck,
                 'eligible_donor' => $eligibleDonor,
@@ -123,6 +127,9 @@ class ReportService
                 'service_in_progress' => $statusCounts->get(ParticipantStatus::ServiceInProgress->value, 0),
                 'finished' => $statusCounts->get(ParticipantStatus::Finished->value, 0),
                 'not_eligible' => $statusCounts->get(ParticipantStatus::NotEligible->value, 0),
+                'waiting' => $statusCounts->get(ParticipantStatus::Waiting->value, 0),
+                'health_check_stage' => $statusCounts->get(ParticipantStatus::HealthCheck->value, 0),
+                'donating' => $statusCounts->get(ParticipantStatus::Donating->value, 0),
 
                 // Compatibility metrics are retained for previously exported legacy events.
                 'waiting_health' => $statusCounts->get(ParticipantStatus::WaitingHealth->value, 0),

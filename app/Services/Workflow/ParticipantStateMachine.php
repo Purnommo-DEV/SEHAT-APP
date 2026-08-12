@@ -27,6 +27,9 @@ class ParticipantStateMachine
     private function allowedTransitions(ParticipantStatus $status): array
     {
         return match ($status) {
+            ParticipantStatus::Waiting => [ParticipantStatus::HealthCheck, ParticipantStatus::Cancelled],
+            ParticipantStatus::HealthCheck => [ParticipantStatus::Donating, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
+            ParticipantStatus::Donating => [ParticipantStatus::Finished, ParticipantStatus::Cancelled],
             ParticipantStatus::Registered => [ParticipantStatus::CheckedIn, ParticipantStatus::WaitingService, ParticipantStatus::Cancelled],
             ParticipantStatus::CheckedIn => [ParticipantStatus::WaitingService, ParticipantStatus::WaitingHealth, ParticipantStatus::Cancelled],
             ParticipantStatus::WaitingService => [ParticipantStatus::ServiceInProgress, ParticipantStatus::Finished, ParticipantStatus::NotEligible, ParticipantStatus::Cancelled],

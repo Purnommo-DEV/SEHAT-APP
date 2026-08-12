@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $called_at
  * @property int|null $called_by
  * @property Carbon|null $served_at
+ * @property Carbon|null $skipped_at
  * @property Carbon|null $finished_at
  * @property Carbon|null $cancelled_at
  * @property int|null $cancelled_by
@@ -57,6 +58,7 @@ class QueueTicket extends Model
         'called_at',
         'called_by',
         'served_at',
+        'skipped_at',
         'finished_at',
         'cancelled_at',
         'cancelled_by',
@@ -72,6 +74,7 @@ class QueueTicket extends Model
             'status' => QueueTicketStatus::class,
             'called_at' => 'datetime',
             'served_at' => 'datetime',
+            'skipped_at' => 'datetime',
             'finished_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];

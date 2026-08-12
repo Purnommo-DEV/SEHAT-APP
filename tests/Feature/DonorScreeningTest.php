@@ -197,8 +197,7 @@ class DonorScreeningTest extends TestCase
 
         $this->actingAs($administrator)
             ->get(route('events.screening.index', $event))
-            ->assertOk()
-            ->assertSee('Screening Donor');
+            ->assertRedirect(route('events.operations.health-check', $event));
 
         $this->actingAs($administrator)
             ->getJson(route('events.screening.data', $event))

@@ -21,7 +21,6 @@ class CheckInController extends Controller
 {
     public function index(Event $event, WorkflowDefinitionService $workflowService): View
     {
-        $this->authorize('viewAny', [EventParticipant::class, $event]);
         $event->load('settings');
         $workflow = $workflowService->validate($event);
         $tickets = $this->recentTickets($event);
@@ -63,15 +62,20 @@ class CheckInController extends Controller
             ->with('status', $message);
     }
 
-    public function show(Event $event, EventParticipant $eventParticipant): View
+    public function show(Event $event, EventParticipant $eventParticipant): View|RedirectResponse
     {
-        $this->authorize('view', $eventParticipant);
         $event->load('settings');
         $eventParticipant->load(['participant', 'currentServicePost', 'checkedInBy', 'services']);
         $queueTicket = $eventParticipant->queueTickets()
             ->with(['event.settings', 'eventParticipant.participant', 'eventParticipant.services', 'servicePost'])
             ->oldest('id')
-            ->firstOrFail();
+            ->first();
+
+        if (! $queueTicket instanceof QueueTicket) {
+            return redirect()
+                ->route('events.check-ins.index', $event)
+                ->with('status', 'Registrasi peserta belum memiliki tiket antrean. Kirim ulang check-in untuk memulihkan tiket awal.');
+        }
 
         return view('check-ins.show', compact('event', 'eventParticipant', 'queueTicket'));
     }
@@ -82,7 +86,6 @@ class CheckInController extends Controller
         EventParticipant $eventParticipant,
         CheckInService $checkInService,
     ): JsonResponse|RedirectResponse {
-        $this->authorize('cancel', $eventParticipant);
         $cancelledParticipant = $checkInService->cancel($event, $eventParticipant, $request->user());
         $message = 'Registrasi dibatalkan. Nomor aktif telah dilepas dan dapat digunakan kembali.';
 

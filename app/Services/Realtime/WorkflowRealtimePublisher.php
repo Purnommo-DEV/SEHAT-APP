@@ -16,6 +16,7 @@ use App\Events\ParticipantMovedToHealthCheck;
 use App\Events\ParticipantRegistered;
 use App\Events\QueueUpdated;
 use App\Events\TVMonitorUpdated;
+use App\Models\Event;
 use App\Models\EventParticipant;
 use App\Models\QueueTicket;
 
@@ -32,22 +33,6 @@ class WorkflowRealtimePublisher
             $ticket->id,
             $ticket->service_post_id,
         );
-
-        match ($initialBehavior) {
-            ServicePostBehavior::ScreeningForm => ParticipantMovedToEligibility::dispatch(
-                $participant->event_id,
-                $participant->id,
-                $ticket->id,
-                $ticket->service_post_id,
-            ),
-            ServicePostBehavior::HealthForm => ParticipantMovedToHealthCheck::dispatch(
-                $participant->event_id,
-                $participant->id,
-                $ticket->id,
-                $ticket->service_post_id,
-            ),
-            default => null,
-        };
 
         $this->snapshots($ticket, 'participant.registered');
     }
@@ -192,6 +177,91 @@ class WorkflowRealtimePublisher
             $eventParticipantId,
             $nextQueueTicketId,
             $nextServicePostId,
+        );
+    }
+
+    public function operationalHealthCheckStarted(EventParticipant $participant, ?int $servicePostId): void
+    {
+        ParticipantMovedToHealthCheck::dispatch(
+            $participant->event_id,
+            $participant->id,
+            null,
+            $servicePostId,
+        );
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ParticipantHealthCheckStarted,
+            $participant->id,
+            null,
+            $servicePostId,
+        );
+    }
+
+    public function operationalDonationStarted(EventParticipant $participant, QueueTicket $ticket): void
+    {
+        ParticipantMovedToDonation::dispatch(
+            $participant->event_id,
+            $participant->id,
+            $ticket->id,
+            $ticket->service_post_id,
+        );
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ParticipantMovedToDonation,
+            $participant->id,
+            $ticket->id,
+            $ticket->service_post_id,
+        );
+    }
+
+    public function operationalCompleted(EventParticipant $participant, ?QueueTicket $ticket = null): void
+    {
+        if ($ticket === null) {
+            ParticipantHealthCheckCompleted::dispatch(
+                $participant->event_id,
+                $participant->id,
+                null,
+                null,
+            );
+        } else {
+            ParticipantDonationCompleted::dispatch(
+                $participant->event_id,
+                $participant->id,
+                $ticket->id,
+                null,
+            );
+        }
+
+        $this->queueStateChanged(
+            $participant->event_id,
+            AuditAction::ParticipantWorkflowCompleted,
+            $participant->id,
+            $ticket?->id,
+            $ticket?->service_post_id,
+        );
+    }
+
+    public function donationCapacityUpdated(Event $event): void
+    {
+        $this->queueStateChanged(
+            $event->id,
+            AuditAction::DonationCapacityUpdated,
+            null,
+            null,
+            null,
+        );
+    }
+
+    public function queueReset(Event $event): void
+    {
+        $this->queueStateChanged(
+            $event->id,
+            AuditAction::QueueReset,
+            null,
+            null,
+            null,
         );
     }
 

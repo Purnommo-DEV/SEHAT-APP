@@ -68,6 +68,23 @@ const beginRealtimeRefresh = (component) => {
     return true;
 };
 
+const realtimeDriver = () => document.documentElement.dataset.realtimeDriver ?? 'reverb';
+const pollingIntervalMs = () => Math.max(
+    2000,
+    Number(document.documentElement.dataset.pollingIntervalMs ?? 3000),
+);
+
+const reportRefreshError = (component, message) => {
+    const now = Date.now();
+
+    if ((component.lastRefreshErrorAt ?? 0) + 30000 > now) {
+        return;
+    }
+
+    component.lastRefreshErrorAt = now;
+    toastr.error(message);
+};
+
 const finishRealtimeRefresh = (component, method = 'refresh') => {
     component.isRefreshing = false;
 
@@ -80,6 +97,13 @@ const finishRealtimeRefresh = (component, method = 'refresh') => {
 };
 
 const refreshAfterReconnect = (component, method = 'refresh') => {
+    if (realtimeDriver() === 'polling') {
+        window.clearInterval(component.pollingTimer);
+        component.pollingTimer = window.setInterval(() => component[method](), pollingIntervalMs());
+
+        return;
+    }
+
     window.addEventListener('sehat:realtime-connected', () => component[method]());
 };
 
@@ -92,8 +116,6 @@ const listenForQueueUpdates = (channel, callback) => {
         '.queue.updated',
         '.participant.registered',
         '.participant.moved-to-eligibility',
-        '.participant.eligible',
-        '.participant.ineligible',
         '.participant.moved-to-donation',
         '.participant.donation-completed',
         '.participant.moved-to-health-check',
@@ -106,6 +128,12 @@ Alpine.data('realtimeStatus', () => ({
     connection: null,
 
     init() {
+        if (realtimeDriver() === 'polling') {
+            this.state = 'polling';
+
+            return;
+        }
+
         this.connection = window.Echo?.connector?.pusher?.connection ?? null;
 
         if (! this.connection) {
@@ -131,6 +159,7 @@ Alpine.data('realtimeStatus', () => ({
             connecting: 'Menghubungkan',
             initialized: 'Menghubungkan',
             unavailable: 'Belum tersedia',
+            polling: 'Pembaruan berkala',
             disconnected: 'Terputus',
             failed: 'Koneksi gagal',
             unavailable_network: 'Jaringan tidak tersedia',
@@ -138,11 +167,11 @@ Alpine.data('realtimeStatus', () => ({
     },
 
     get dotClass() {
-        return this.state === 'connected' ? 'bg-emerald-500' : 'bg-amber-500';
+        return ['connected', 'polling'].includes(this.state) ? 'bg-emerald-500' : 'bg-amber-500';
     },
 
     get badgeClass() {
-        return this.state === 'connected'
+        return ['connected', 'polling'].includes(this.state)
             ? 'border-emerald-200 text-emerald-700'
             : 'border-amber-200 text-amber-700';
     },
@@ -376,6 +405,7 @@ Alpine.data('checkInDesk', (
     searchController: null,
     quickOpen: false,
     quickSubmitting: false,
+    pollingTimer: null,
     quickErrors: {},
     quickParticipant: {
         name: '',
@@ -384,7 +414,7 @@ Alpine.data('checkInDesk', (
     },
 
     init() {
-        const channel = window.Echo?.private(`events.${eventId}`);
+        const channel = window.Echo?.channel(`events.${eventId}`);
         channel?.listen('.participant.checked-in', () => {
             this.refreshTickets();
         });
@@ -403,6 +433,10 @@ Alpine.data('checkInDesk', (
             this.submitting = false;
         });
         this.$nextTick(() => document.getElementById('participant-search')?.focus());
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
     },
 
     get hasAvailableService() {
@@ -623,7 +657,7 @@ Alpine.data('checkInDesk', (
             this.tickets = payload.data;
             this.applyWorkflow(payload.meta.workflow);
         } catch {
-            toastr.error('Status registrasi realtime tidak dapat diperbarui.');
+            reportRefreshError(this, 'Status registrasi realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this, 'refreshTickets');
         }
@@ -633,6 +667,7 @@ Alpine.data('checkInDesk', (
 Alpine.data('healthQueue', (initialTickets, dataUrl, eventId) => ({
     tickets: initialTickets,
     isRefreshing: false,
+    pollingTimer: null,
 
     init() {
         const channel = window.Echo?.private(`events.${eventId}`);
@@ -646,6 +681,10 @@ Alpine.data('healthQueue', (initialTickets, dataUrl, eventId) => ({
                 this.closeDecision();
             }
         });
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
     },
 
     get waitingTickets() {
@@ -696,7 +735,7 @@ Alpine.data('healthQueue', (initialTickets, dataUrl, eventId) => ({
 
             this.tickets = (await response.json()).data;
         } catch {
-            toastr.error('Antrean kesehatan realtime tidak dapat diperbarui.');
+            reportRefreshError(this, 'Antrean kesehatan realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this);
         }
@@ -709,6 +748,7 @@ Alpine.data('screeningDesk', (initialParticipants, dataUrl, eventId) => ({
     decision: null,
     reason: '',
     isRefreshing: false,
+    pollingTimer: null,
     lastFocusedElement: null,
 
     init() {
@@ -718,6 +758,10 @@ Alpine.data('screeningDesk', (initialParticipants, dataUrl, eventId) => ({
         listenForQueueUpdates(channel, () => this.refresh());
         refreshAfterReconnect(this);
         refreshAfterOperation(this);
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
     },
 
     get waitingParticipants() {
@@ -770,7 +814,7 @@ Alpine.data('screeningDesk', (initialParticipants, dataUrl, eventId) => ({
 
             this.participants = (await response.json()).data;
         } catch {
-            toastr.error('Data screening realtime tidak dapat diperbarui.');
+            reportRefreshError(this, 'Data screening realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this);
         }
@@ -780,6 +824,7 @@ Alpine.data('screeningDesk', (initialParticipants, dataUrl, eventId) => ({
 Alpine.data('donorQueue', (initialTickets, dataUrl, eventId) => ({
     tickets: initialTickets,
     isRefreshing: false,
+    pollingTimer: null,
 
     init() {
         const channel = window.Echo?.private(`events.${eventId}`);
@@ -788,6 +833,10 @@ Alpine.data('donorQueue', (initialTickets, dataUrl, eventId) => ({
         listenForQueueUpdates(channel, () => this.refresh());
         refreshAfterReconnect(this);
         refreshAfterOperation(this);
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
     },
 
     get waitingTickets() {
@@ -838,10 +887,299 @@ Alpine.data('donorQueue', (initialTickets, dataUrl, eventId) => ({
 
             this.tickets = (await response.json()).data;
         } catch {
-            toastr.error('Antrean donor realtime tidak dapat diperbarui.');
+            reportRefreshError(this, 'Antrean donor realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this);
         }
+    },
+}));
+
+Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId) => ({
+    queue: initialQueue,
+    dataUrl,
+    eventId,
+    isRefreshing: false,
+    refreshPending: false,
+    pollingTimer: null,
+    goto: {
+        open: false,
+        lane: 'male',
+        search: '',
+        selectedTicketId: null,
+    },
+    lanes: [
+        {
+            value: 'male',
+            label: 'Laki-laki',
+            cardClass: 'border-sky-200',
+            headerClass: 'bg-gradient-to-r from-indigo-700 to-sky-600',
+            currentClass: 'border-sky-100 bg-gradient-to-br from-sky-50 to-indigo-50/70',
+            numberClass: 'text-indigo-700',
+            nextButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
+        },
+        {
+            value: 'female',
+            label: 'Perempuan',
+            cardClass: 'border-rose-200',
+            headerClass: 'bg-gradient-to-r from-rose-600 to-fuchsia-600',
+            currentClass: 'border-rose-100 bg-gradient-to-br from-rose-50 to-fuchsia-50/70',
+            numberClass: 'text-rose-700',
+            nextButtonClass: 'bg-rose-600 hover:bg-rose-700',
+        },
+    ],
+    init() {
+        const channel = window.Echo
+            ?.channel(`events.${eventId}`)
+            .listen('.service.queue.updated', () => this.refresh());
+        listenForQueueUpdates(channel, () => this.refresh());
+        refreshAfterReconnect(this);
+        window.addEventListener('sehat:operation-completed', () => {
+            this.closeGoto();
+            this.refresh();
+        });
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
+    },
+
+    get tickets() {
+        return this.queue?.tickets ?? [];
+    },
+
+    get activePositions() {
+        return this.queue?.positions ?? [];
+    },
+
+    ticketsFor(lane) {
+        return this.tickets.filter((ticket) => ticket.participant.gender_value === lane);
+    },
+
+    waitingTicketsFor(lane) {
+        return this.ticketsFor(lane)
+            .filter((ticket) => ticket.status === 'waiting')
+            .sort((first, second) => first.number - second.number || first.id - second.id);
+    },
+
+    gotoTicketsFor(lane) {
+        return this.ticketsFor(lane)
+            .filter((ticket) => ['waiting', 'skipped'].includes(ticket.status))
+            .sort((first, second) => first.number - second.number || first.id - second.id);
+    },
+
+    currentTicketFor(lane) {
+        const tickets = this.ticketsFor(lane);
+
+        return tickets.find((ticket) => ticket.status === 'calling')
+            ?? tickets.find((ticket) => ticket.status === 'serving')
+            ?? null;
+    },
+
+    nextTicketFor(lane) {
+        if (this.currentTicketFor(lane)) {
+            return null;
+        }
+
+        return this.waitingTicketsFor(lane)[0] ?? null;
+    },
+
+    skippableTicketFor(lane) {
+        return this.ticketsFor(lane).find((ticket) => ticket.status === 'calling') ?? null;
+    },
+
+    laneLabel(lane) {
+        return this.lanes.find((item) => item.value === lane)?.label ?? 'dipilih';
+    },
+
+    ensureNext(lane) {
+        if (this.nextTicketFor(lane)) {
+            return true;
+        }
+
+        toastr.error(`Belum ada antrean ${this.laneLabel(lane).toLowerCase()} yang dapat dipanggil.`);
+
+        return false;
+    },
+
+    ensureSkip(lane) {
+        if (this.skippableTicketFor(lane)) {
+            return true;
+        }
+
+        toastr.error(`Belum ada nomor ${this.laneLabel(lane).toLowerCase()} yang sedang dipanggil.`);
+
+        return false;
+    },
+
+    openGoto(lane) {
+        if (this.currentTicketFor(lane)) {
+            toastr.error(`Selesaikan atau Skip nomor ${this.laneLabel(lane).toLowerCase()} yang sedang dipanggil terlebih dahulu.`);
+
+            return;
+        }
+
+        this.goto = {
+            open: true,
+            lane,
+            search: '',
+            selectedTicketId: null,
+        };
+    },
+
+    closeGoto() {
+        this.goto.open = false;
+        this.goto.search = '';
+        this.goto.selectedTicketId = null;
+    },
+
+    gotoCandidates() {
+        const search = this.goto.search.trim().toLocaleLowerCase();
+
+        return this.gotoTicketsFor(this.goto.lane).filter((ticket) => {
+            if (! search) {
+                return true;
+            }
+
+            return [this.displayNumber(ticket), ticket.participant.name]
+                .filter(Boolean)
+                .some((value) => value.toLocaleLowerCase().includes(search));
+        });
+    },
+
+    selectedGotoTicket() {
+        return this.gotoTicketsFor(this.goto.lane)
+            .find((ticket) => ticket.id === this.goto.selectedTicketId)
+            ?? null;
+    },
+
+    selectGotoTicket(ticket) {
+        this.goto.selectedTicketId = ticket.id;
+    },
+
+    prepareGoto(event) {
+        const ticket = this.selectedGotoTicket();
+
+        if (! ticket) {
+            toastr.error(`Pilih peserta aktif pada jalur ${this.laneLabel(this.goto.lane)} terlebih dahulu.`);
+
+            return false;
+        }
+
+        event.currentTarget.action = ticket.urls.goto;
+
+        return true;
+    },
+
+    async refresh() {
+        if (! beginRealtimeRefresh(this)) {
+            return;
+        }
+
+        try {
+            const response = await window.fetch(this.dataUrl, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (! response.ok) {
+                throw new Error();
+            }
+
+            this.queue = await response.json();
+        } catch {
+            reportRefreshError(this, 'Data Area Tunggu tidak dapat diperbarui.');
+        } finally {
+            finishRealtimeRefresh(this);
+        }
+    },
+
+    displayNumber(ticket) {
+        return ticket?.display_number ?? ticket?.number ?? null;
+    },
+}));
+
+Alpine.data('operationalStage', (initialParticipants, dataUrl, eventId, initialCapacity = null, capacityUpdateUrl = null, canUpdateCapacity = false) => ({
+    participants: initialParticipants,
+    dataUrl,
+    eventId,
+    capacity: initialCapacity,
+    capacityUpdateUrl,
+    canUpdateCapacity,
+    capacityGenders: [
+        { key: 'male' },
+        { key: 'female' },
+    ],
+    editableCapacity: {
+        male: initialCapacity?.male?.capacity ?? 1,
+        female: initialCapacity?.female?.capacity ?? 1,
+    },
+    isRefreshing: false,
+    refreshPending: false,
+    pollingTimer: null,
+
+    init() {
+        const channel = window.Echo
+            ?.channel(`events.${eventId}`)
+            .listen('.service.queue.updated', () => this.refresh());
+        listenForQueueUpdates(channel, () => this.refresh());
+        refreshAfterReconnect(this);
+        refreshAfterOperation(this);
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
+    },
+
+    async refresh() {
+        if (! beginRealtimeRefresh(this)) {
+            return;
+        }
+
+        try {
+            const response = await window.fetch(this.dataUrl, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (! response.ok) {
+                throw new Error();
+            }
+
+            const payload = await response.json();
+            this.participants = payload.data;
+            this.capacity = payload.meta?.donation_capacity ?? this.capacity;
+            this.editableCapacity = {
+                male: this.capacity?.male?.capacity ?? this.editableCapacity.male,
+                female: this.capacity?.female?.capacity ?? this.editableCapacity.female,
+            };
+        } catch {
+            reportRefreshError(this, 'Data area operasional tidak dapat diperbarui.');
+        } finally {
+            finishRealtimeRefresh(this);
+        }
+    },
+
+    formatDate(value) {
+        return value
+            ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+            : '-';
+    },
+
+    capacityFor(gender) {
+        return this.capacity?.[gender] ?? {
+            label: gender === 'male' ? 'Laki-laki' : 'Perempuan',
+            capacity: 0,
+            active: 0,
+            available: 0,
+            is_full: true,
+        };
+    },
+
+    participantsForGender(gender) {
+        return this.participants.filter((participant) => participant.participant.gender === gender);
+    },
+
+    adjustCapacity(gender, amount) {
+        const current = Number(this.editableCapacity[gender] ?? 1);
+        this.editableCapacity[gender] = Math.max(1, Math.min(50, current + amount));
     },
 }));
 
@@ -852,25 +1190,32 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
     activeEventId: initialSnapshot.event?.id ?? null,
     subscribedEventId: null,
     isRefreshing: false,
+    pollingTimer: null,
     metricCards: [
         { key: 'checked_in', label: 'Peserta hadir', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
         { key: 'donor', label: 'Donor', iconClass: 'bg-red-50 text-red-700', icon: '<path stroke-linecap="round" d="M12 3c3 4 5 6.5 5 10a5 5 0 0 1-10 0c0-3.5 2-6 5-10Z"/>' },
         { key: 'health_check', label: 'Pemeriksaan kesehatan', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
-        { key: 'selected_donor', label: 'Memilih donor', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 21s7-4.35 7-10a7 7 0 0 0-14 0c0 5.65 7 10 7 10Z"/>' },
-        { key: 'selected_health_check', label: 'Memilih cek kesehatan', iconClass: 'bg-sky-50 text-sky-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
-        { key: 'selected_both', label: 'Memilih keduanya', iconClass: 'bg-violet-50 text-violet-700', icon: '<path stroke-linecap="round" d="M8 7h8M8 12h8M8 17h8"/>' },
-        { key: 'eligible_donor', label: 'Layak donor', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
-        { key: 'not_eligible_donor', label: 'Tidak layak donor', iconClass: 'bg-amber-50 text-amber-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M6 18 18 6"/>' },
-        { key: 'donation_in_progress', label: 'Sedang donor', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3v18M5 12h14"/>' },
-        { key: 'donor_completed', label: 'Donor selesai', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
-        { key: 'health_check_in_progress', label: 'Sedang diperiksa', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
-        { key: 'health_check_completed', label: 'Pemeriksaan selesai', iconClass: 'bg-teal-50 text-teal-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
+        { key: 'selected_both', label: 'Donor + kesehatan', iconClass: 'bg-violet-50 text-violet-700', icon: '<path stroke-linecap="round" d="M8 7h8M8 12h8M8 17h8"/>' },
+        { key: 'selected_donor_only', label: 'Donor saja', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3c3 4 5 6.5 5 10a5 5 0 0 1-10 0c0-3.5 2-6 5-10Z"/>' },
+        { key: 'selected_health_only', label: 'Kesehatan saja', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
+        { key: 'waiting', label: 'Menunggu', iconClass: 'bg-amber-50 text-amber-700', icon: '<path stroke-linecap="round" d="M12 6v6l4 2"/>' },
+        { key: 'health_check_stage', label: 'Cek kesehatan', iconClass: 'bg-cyan-50 text-cyan-700', icon: '<path stroke-linecap="round" d="M4 12h4l2-5 4 10 2-5h4"/>' },
+        { key: 'donating', label: 'Sedang donor', iconClass: 'bg-rose-50 text-rose-700', icon: '<path stroke-linecap="round" d="M12 3v18M5 12h14"/>' },
+        { key: 'finished', label: 'Selesai', iconClass: 'bg-emerald-50 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6"/>' },
     ],
 
     init() {
-        window.Echo?.private('events').listen('.event.lifecycle.updated', () => this.refresh());
+        window.Echo?.channel('operational').listen('.event.lifecycle.updated', () => this.refresh());
         this.subscribeToActiveEvent();
         refreshAfterReconnect(this);
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
+
+        if (this.subscribedEventId) {
+            window.Echo?.leave(`events.${this.subscribedEventId}`);
+        }
     },
 
     subscribeToActiveEvent() {
@@ -889,7 +1234,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
             return;
         }
 
-        this.activeChannel = window.Echo.private(`events.${this.activeEventId}`);
+        this.activeChannel = window.Echo.channel(`events.${this.activeEventId}`);
         this.subscribedEventId = this.activeEventId;
         [
             '.participant.checked-in',
@@ -898,6 +1243,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
             '.donor.queue.updated',
             '.service.queue.updated',
             '.service-post.updated',
+            '.queue.updated',
             '.dashboard.updated',
         ].forEach((eventName) => this.activeChannel.listen(eventName, () => this.refresh()));
     },
@@ -941,55 +1287,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
                 this.subscribeToActiveEvent();
             }
         } catch {
-            toastr.error('Dashboard realtime tidak dapat diperbarui.');
-        } finally {
-            finishRealtimeRefresh(this);
-        }
-    },
-}));
-
-Alpine.data('serviceQueue', (initialTickets, dataUrl, eventId, servicePostId) => ({
-    tickets: initialTickets,
-    dataUrl,
-    eventId,
-    servicePostId,
-    isRefreshing: false,
-
-    init() {
-        const channel = window.Echo
-            ?.private(`events.${eventId}`)
-            .listen('.service.queue.updated', (payload) => {
-                if (payload.service_post_id === servicePostId || payload.next_service_post_id === servicePostId) {
-                    this.refresh();
-                }
-            })
-            .listen('.participant.checked-in', () => this.refresh());
-        listenForQueueUpdates(channel, () => this.refresh());
-        refreshAfterReconnect(this);
-        refreshAfterOperation(this);
-    },
-
-    async refresh() {
-        if (! beginRealtimeRefresh(this)) {
-            return;
-        }
-
-        try {
-            const response = await window.fetch(this.dataUrl, {
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-
-            if (! response.ok) {
-                throw new Error();
-            }
-
-            const payload = await response.json();
-            this.tickets = payload.data;
-        } catch {
-            toastr.error('Antrean pos tidak dapat diperbarui.');
+            reportRefreshError(this, 'Dashboard realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this);
         }
@@ -1003,11 +1301,20 @@ Alpine.data('monitorBoard', (initialSnapshot, dataUrl) => ({
     activeChannel: null,
     subscribedEventId: null,
     isRefreshing: false,
+    pollingTimer: null,
 
     init() {
-        window.Echo?.private('events').listen('.event.lifecycle.updated', () => this.refresh());
+        window.Echo?.channel('operational').listen('.event.lifecycle.updated', () => this.refresh());
         this.subscribeToActiveEvent();
         refreshAfterReconnect(this);
+    },
+
+    destroy() {
+        window.clearInterval(this.pollingTimer);
+
+        if (this.subscribedEventId) {
+            window.Echo?.leave(`events.${this.subscribedEventId}`);
+        }
     },
 
     subscribeToActiveEvent() {
@@ -1026,7 +1333,7 @@ Alpine.data('monitorBoard', (initialSnapshot, dataUrl) => ({
             return;
         }
 
-        this.activeChannel = window.Echo.private(`events.${this.activeEventId}`);
+        this.activeChannel = window.Echo.channel(`events.${this.activeEventId}`);
         this.subscribedEventId = this.activeEventId;
         [
             '.participant.checked-in',
@@ -1035,6 +1342,7 @@ Alpine.data('monitorBoard', (initialSnapshot, dataUrl) => ({
             '.donor.queue.updated',
             '.service.queue.updated',
             '.service-post.updated',
+            '.queue.updated',
             '.tv-monitor.updated',
         ].forEach((eventName) => this.activeChannel.listen(eventName, () => this.refresh()));
     },
@@ -1075,7 +1383,7 @@ Alpine.data('monitorBoard', (initialSnapshot, dataUrl) => ({
                 this.subscribeToActiveEvent();
             }
         } catch {
-            toastr.error('Layar monitor tidak dapat diperbarui secara realtime.');
+            reportRefreshError(this, 'Layar monitor tidak dapat diperbarui secara realtime.');
         } finally {
             finishRealtimeRefresh(this);
         }
@@ -1094,10 +1402,12 @@ Alpine.data('reportDashboard', (initialSnapshot, dataUrl, eventId) => ({
         { key: 'selected_donor', label: 'Memilih donor' },
         { key: 'selected_health_check', label: 'Memilih pemeriksaan' },
         { key: 'selected_both', label: 'Memilih keduanya' },
-        { key: 'eligible_donor', label: 'Layak donor' },
-        { key: 'not_eligible_donor', label: 'Tidak layak donor' },
-        { key: 'donor_completed', label: 'Donor berhasil' },
-        { key: 'health_check_completed', label: 'Pemeriksaan selesai' },
+        { key: 'selected_donor_only', label: 'Donor saja' },
+        { key: 'selected_health_only', label: 'Kesehatan saja' },
+        { key: 'waiting', label: 'Menunggu' },
+        { key: 'health_check_stage', label: 'Cek kesehatan' },
+        { key: 'donating', label: 'Sedang donor' },
+        { key: 'finished', label: 'Selesai' },
     ],
 
     init() {
@@ -1109,6 +1419,7 @@ Alpine.data('reportDashboard', (initialSnapshot, dataUrl, eventId) => ({
             '.donor.queue.updated',
             '.service.queue.updated',
             '.service-post.updated',
+            '.queue.updated',
             '.dashboard.updated',
         ].forEach((eventName) => channel?.listen(eventName, () => this.refresh()));
         refreshAfterReconnect(this);
@@ -1139,7 +1450,7 @@ Alpine.data('reportDashboard', (initialSnapshot, dataUrl, eventId) => ({
 
             this.snapshot = await response.json();
         } catch {
-            toastr.error('Data laporan realtime tidak dapat diperbarui.');
+            reportRefreshError(this, 'Data laporan realtime tidak dapat diperbarui.');
         } finally {
             finishRealtimeRefresh(this);
         }

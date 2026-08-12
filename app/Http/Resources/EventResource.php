@@ -36,6 +36,12 @@ class EventResource extends JsonResource
                 'donor_number_mode' => $this->settings->donor_number_mode->value,
                 'donor_queue_prefix' => $this->settings->donor_queue_prefix,
                 'donor_queue_digits' => $this->settings->donor_queue_digits,
+                'donation_capacity_male' => $this->settings->donation_capacity_male,
+                'donation_capacity_female' => $this->settings->donation_capacity_female,
+                'donation_capacity_total' => $this->settings->donation_capacity_male + $this->settings->donation_capacity_female,
+                // Legacy read-only key. New consumers must use the two gender
+                // fields above; operational capacity never reads this value.
+                'donation_capacity' => $this->settings->donation_capacity,
                 'general_queue_digits' => $this->settings->general_queue_digits,
                 'male_donor_queue_prefix' => $this->settings->male_donor_queue_prefix,
                 'female_donor_queue_prefix' => $this->settings->female_donor_queue_prefix,

@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.operational')
 
 @section('title', 'Registrasi Ulang')
 @section('page-title', 'Registrasi Ulang')
@@ -15,7 +15,7 @@
         x-data="checkInDesk(
             @js($ticketsJson),
             @js(route('events.check-ins.data', $event)),
-            @js(route('participants.autocomplete')),
+            @js(route('events.check-ins.participants.autocomplete', $event)),
             @js(route('events.check-ins.participants.store', $event)),
             {{ $event->id }},
             @js($workflowJson),
@@ -80,9 +80,7 @@
                         <h2 class="text-xl font-extrabold text-slate-900">Cari peserta</h2>
                         <p class="mt-1 text-sm leading-6 text-slate-500">Pilih identitas yang sudah terdaftar. Sistem akan mengunci event dan menghasilkan nomor secara atomik.</p>
                     </div>
-                    @can(\App\Enums\PermissionName::ManageCheckIn->value)
-                        <button type="button" @click.stop="openQuickParticipant()" class="btn btn-sm btn-outline shrink-0 border-emerald-200 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white">+ Peserta baru</button>
-                    @endcan
+                    <button type="button" @click.stop="openQuickParticipant()" class="btn btn-sm btn-outline shrink-0 border-emerald-200 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white">+ Peserta baru</button>
                 </div>
 
                 <form method="POST" action="{{ route('events.check-ins.store', $event) }}" class="mt-7 space-y-5" data-realtime-submit @submit="submitting = true">
@@ -143,9 +141,7 @@
                             </template>
                             <div x-show="! searchLoading && searchCompleted && suggestions.length === 0" class="p-3 text-center">
                                 <p class="text-sm font-semibold text-slate-600">Peserta tidak ditemukan.</p>
-                                @can(\App\Enums\PermissionName::ManageCheckIn->value)
-                                    <button type="button" @click.stop="$dispatch('open-quick-participant')" class="btn btn-sm mt-3 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">+ Tambah Peserta Baru</button>
-                                @endcan
+                                <button type="button" @click.stop="$dispatch('open-quick-participant')" class="btn btn-sm mt-3 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">+ Tambah Peserta Baru</button>
                             </div>
                         </div>
                     </div>
@@ -167,7 +163,7 @@
 
                     <fieldset class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <legend class="px-1 text-sm font-extrabold text-slate-800">Layanan yang diinginkan</legend>
-                        <p class="mt-1 text-sm text-slate-500">Pilih satu atau keduanya. Sistem hanya menerbitkan nomor donor setelah peserta dinyatakan layak.</p>
+                        <p class="mt-1 text-sm text-slate-500">Pilih satu atau keduanya. Nomor donor diterbitkan saat petugas memulai tahap Donor.</p>
                         <div class="mt-4 grid gap-3 sm:grid-cols-2">
                             @foreach (\App\Enums\ParticipantServiceType::cases() as $serviceType)
                                 <label
@@ -218,7 +214,11 @@
                 <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                     <div>
                         <h2 class="font-extrabold text-slate-900">Check-in terbaru</h2>
-                    <p class="mt-1 text-xs text-slate-500">Diperbarui langsung melalui Reverb</p>
+                    <p class="mt-1 text-xs text-slate-500">
+                        {{ config('foundation.realtime.driver') === 'polling'
+                            ? 'Diperbarui berkala setiap '.(config('foundation.realtime.polling_interval_ms') / 1000).' detik'
+                            : 'Diperbarui langsung melalui Reverb' }}
+                    </p>
                     </div>
                     <span class="size-2.5 rounded-full" :class="isRefreshing ? 'animate-pulse bg-amber-400' : 'bg-emerald-500'"></span>
                 </div>

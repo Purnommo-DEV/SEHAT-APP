@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Enums\AuditAction;
 use App\Events\Concerns\QueuesBroadcasts;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -19,11 +20,12 @@ class EventLifecycleUpdated implements ShouldBroadcast
     ) {}
 
     /**
-     * @return list<PrivateChannel>
+     * @return list<Channel|PrivateChannel>
      */
     public function broadcastOn(): array
     {
         return [
+            new Channel('operational'),
             new PrivateChannel('events'),
             new PrivateChannel("events.{$this->eventId}"),
         ];

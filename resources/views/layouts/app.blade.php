@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="emerald">
+<html lang="id" data-theme="emerald" data-realtime-driver="{{ config('foundation.realtime.driver') }}" data-polling-interval-ms="{{ config('foundation.realtime.polling_interval_ms') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -51,89 +51,47 @@
             </div>
 
             <nav class="flex-1 overflow-y-auto px-4 py-6" aria-label="Navigasi utama">
-                <p class="px-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-slate-400">Ruang kerja</p>
-                <ul class="mt-3 space-y-1">
-                    @can('dashboard.view')
+                @can('administration.access')
+                    <p class="px-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-slate-400">Administration</p>
+                    <ul class="mt-3 space-y-1">
                         <li>
-                            <a
-                                href="{{ route('dashboard') }}"
-                                @class([
-                                    'flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
-                                    'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('dashboard'),
-                                    'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('dashboard'),
-                                ])
-                            >
-                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/>
-                                </svg>
+                            <a href="{{ route('admin.dashboard') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('admin.dashboard'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('admin.dashboard')])>
+                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
                                 Dashboard
                             </a>
                         </li>
-                    @endcan
-                    @can('events.manage')
-                        <li>
-                            <a
-                                href="{{ route('events.index') }}"
-                                @class([
-                                    'flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
-                                    'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('events.*'),
-                                    'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('events.*'),
-                                ])
-                            >
-                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3m8-3v3M4.5 9.5h15M6.5 5h11A1.5 1.5 0 0 1 19 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11A1.5 1.5 0 0 1 6.5 5Z"/>
-                                    <path stroke-linecap="round" d="M8 13h3m2 0h3m-8 3h3"/>
-                                </svg>
-                                Event
-                            </a>
-                        </li>
-                    @endcan
-                    @can('check-in.manage')
-                        <li>
-                            <a
-                                href="{{ route('check-ins.active') }}"
-                                @class([
-                                    'flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
-                                    'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('check-ins.*', 'events.check-ins.*'),
-                                    'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('check-ins.*', 'events.check-ins.*'),
-                                ])
-                            >
-                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/></svg>
-                                Registrasi Ulang
-                            </a>
-                        </li>
-                    @endcan
-                    @can('queues.manage')
-                        <li>
-                            <a
-                                href="{{ route('queues.active') }}"
-                                @class([
-                                    'flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
-                                    'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('queues.*', 'events.service-queues.*'),
-                                    'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('queues.*', 'events.service-queues.*'),
-                                ])
-                            >
-                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 4h6v4h4v12H5V8h4V4Z"/><path stroke-linecap="round" d="M9 13h6M12 10v6"/></svg>
-                                Antrean Saya
-                            </a>
-                        </li>
-                    @endcan
-                    @can('monitor.view')
-                        <li>
-                            <a
-                                href="{{ route('monitor.active') }}"
-                                @class([
-                                    'flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition',
-                                    'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('monitor.*', 'events.monitor.*'),
-                                    'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('monitor.*', 'events.monitor.*'),
-                                ])
-                            >
-                                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path stroke-linecap="round" d="M8 21h8M12 17v4"/></svg>
-                                TV Monitor
-                            </a>
-                        </li>
-                    @endcan
-                </ul>
+                        @can('events.manage')
+                            <li><a href="{{ route('events.index') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('events.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('events.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3m8-3v3M4.5 9.5h15M6.5 5h11A1.5 1.5 0 0 1 19 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17.5v-11A1.5 1.5 0 0 1 6.5 5Z"/><path stroke-linecap="round" d="M8 13h3m2 0h3m-8 3h3"/></svg>Event</a></li>
+                        @endcan
+                        @can('participants.manage')
+                            <li><a href="{{ route('participants.index') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('participants.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('participants.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20m14-9a4 4 0 1 0 0-8m2 17v-1.5a4 4 0 0 0-3-3.87M11 6.5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>Peserta</a></li>
+                        @endcan
+                        @can('users.manage')
+                            <li><a href="{{ route('admin.users.index') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('admin.users.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('admin.users.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m17-9a3 3 0 1 0-6 0 3 3 0 0 0 6 0Zm-7-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>User & Permission</a></li>
+                        @endcan
+                        @can('audit-logs.view')
+                            <li><a href="{{ route('admin.audit-logs.index') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('admin.audit-logs.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('admin.audit-logs.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7l5 5v9a2 2 0 0 1-2 2Z"/></svg>Audit Log</a></li>
+                        @endcan
+                    </ul>
+                @endcan
+
+                @canany(['dashboard.view', 'check-in.manage', 'operations.manage', 'monitor.view'])
+                    <p class="mt-7 px-3 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-slate-400">Operasional</p>
+                    <ul class="mt-3 space-y-1">
+                        @can('dashboard.view')
+                            <li><a href="{{ route('dashboard') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('dashboard'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('dashboard')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg>Dashboard</a></li>
+                        @endcan
+                        @can('check-in.manage')
+                            <li><a href="{{ route('check-ins.active') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('check-ins.*', 'events.check-ins.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('check-ins.*', 'events.check-ins.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/></svg>Registrasi</a></li>
+                        @endcan
+                        @can('operations.manage')
+                            <li><a href="{{ route('operations.active') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('operations.*', 'events.operations.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('operations.*', 'events.operations.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M3 12h18M6.5 6.5l11 11m0-11-11 11"/></svg>Operasional</a></li>
+                        @endcan
+                        @can('monitor.view')
+                            <li><a href="{{ route('monitor.active') }}" @class(['flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition', 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100' => request()->routeIs('monitor.*', 'events.monitor.*'), 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! request()->routeIs('monitor.*', 'events.monitor.*')])><svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path stroke-linecap="round" d="M8 21h8M12 17v4"/></svg>TV Monitor</a></li>
+                        @endcan
+                    </ul>
+                @endcanany
             </nav>
 
             <div class="border-t border-emerald-100 p-4">

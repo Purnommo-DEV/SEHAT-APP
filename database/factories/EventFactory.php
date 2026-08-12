@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EventStatus;
+use App\Enums\ParticipantGender;
 use App\Models\Event;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -34,6 +35,12 @@ class EventFactory extends Factory
     {
         return $this->afterCreating(function (Event $event): void {
             $event->settings()->firstOrCreate([]);
+            $event->donationCapacityLanes()->firstOrCreate([
+                'gender' => ParticipantGender::Male->value,
+            ]);
+            $event->donationCapacityLanes()->firstOrCreate([
+                'gender' => ParticipantGender::Female->value,
+            ]);
         });
     }
 

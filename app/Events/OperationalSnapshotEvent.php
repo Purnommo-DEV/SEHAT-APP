@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Events\Concerns\QueuesBroadcasts;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -21,11 +21,11 @@ abstract class OperationalSnapshotEvent implements ShouldBroadcast
     ) {}
 
     /**
-     * @return list<PrivateChannel>
+     * @return list<Channel>
      */
     public function broadcastOn(): array
     {
-        return [new PrivateChannel("events.{$this->eventId}")];
+        return [new Channel("events.{$this->eventId}")];
     }
 
     /**

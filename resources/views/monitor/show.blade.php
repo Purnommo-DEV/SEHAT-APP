@@ -28,7 +28,7 @@
                 </div>
             </div>
 
-            <section x-show="snapshot.event" x-cloak class="grid flex-1 gap-5 py-7 lg:grid-cols-3 lg:py-10">
+            <section x-show="snapshot.event" x-cloak class="grid flex-1 gap-5 py-7 lg:grid-cols-2 lg:py-10">
                 <template x-for="queue in snapshot.queues" :key="queue.id">
                     <article
                         class="flex min-h-[30rem] flex-col overflow-hidden rounded-[2rem] border shadow-2xl shadow-slate-950/30 backdrop-blur-sm"
@@ -36,6 +36,9 @@
                     >
                         <header class="border-b border-white/15 px-6 py-5 text-center">
                             <h2 class="text-xl font-extrabold text-emerald-100 sm:text-2xl" x-text="queue.label"></h2>
+                            <p class="mt-3 inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-emerald-50 ring-1 ring-white/15">
+                                Donor: <span class="ml-1" x-text="`${queue.donation_capacity.active} / ${queue.donation_capacity.capacity} aktif - ${queue.donation_capacity.available} slot`"></span>
+                            </p>
                             <p class="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-white/50"><span x-text="queue.behavior_label"></span> · Sedang dipanggil</p>
                         </header>
                         <div class="flex flex-1 flex-col items-center justify-center px-5 py-7 text-center">
@@ -55,6 +58,18 @@
                                 </div>
                             </template>
                         </div>
+                        <section x-show="queue.active_positions.length > 0" x-cloak class="border-t border-white/15 bg-slate-950/15 px-5 py-5">
+                            <p class="text-center text-xs font-bold uppercase tracking-[0.18em] text-white/50">Sedang diproses</p>
+                            <ol class="mt-3 space-y-2">
+                                <template x-for="position in queue.active_positions" :key="position.id">
+                                    <li class="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2 text-left ring-1 ring-white/10">
+                                        <span class="font-mono text-base font-black text-white" x-text="position.number"></span>
+                                        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold text-white" x-text="position.participant_name"></span><span class="block truncate text-xs font-semibold text-emerald-100" x-text="position.services.join(' + ')"></span></span>
+                                        <span class="shrink-0 rounded-full bg-emerald-300/20 px-2.5 py-1 text-xs font-black text-emerald-100" x-text="position.position_label"></span>
+                                    </li>
+                                </template>
+                            </ol>
+                        </section>
                         <div class="border-t border-white/15 bg-slate-950/20 px-5 py-5">
                             <p class="text-center text-xs font-bold uppercase tracking-[0.18em] text-white/50">Antrean berikutnya</p>
                             <div x-show="queue.waiting.length === 0" class="mt-4 text-center text-base font-semibold text-white/60">Tidak ada antrean menunggu</div>
@@ -79,7 +94,12 @@
                 </div>
             </section>
 
-            <footer class="pt-2 text-center text-xs font-semibold tracking-wide text-white/40">Klik ganda layar atau tekan F11 untuk mode layar penuh · Data diperbarui realtime</footer>
+            <footer class="pt-2 text-center text-xs font-semibold tracking-wide text-white/40">
+                Klik ganda layar atau tekan F11 untuk mode layar penuh ·
+                {{ config('foundation.realtime.driver') === 'polling'
+                    ? 'Data diperbarui berkala setiap '.(config('foundation.realtime.polling_interval_ms') / 1000).' detik'
+                    : 'Data diperbarui realtime' }}
+            </footer>
         </div>
     </main>
 @endsection

@@ -27,6 +27,16 @@ class EventPolicy
         return $user->can('events.manage');
     }
 
+    public function updateDonationCapacity(User $user, Event $event): bool
+    {
+        return $user->can('event.update_donation_capacity');
+    }
+
+    public function resetQueue(User $user, Event $event): bool
+    {
+        return $user->can('event.reset_queue');
+    }
+
     public function activate(User $user, Event $event): bool
     {
         return $user->can('events.manage');

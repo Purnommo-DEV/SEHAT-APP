@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property int $event_id
  * @property int $participant_id
  * @property int|null $registration_number
+ * @property string|null $registration_number_scope
  * @property int|null $active_registration_number
  * @property int|null $current_service_post_id
  * @property ParticipantStatus $status
@@ -35,6 +36,7 @@ use Illuminate\Support\Carbon;
  * @property-read DonorScreening|null $donorScreening
  * @property-read DonorScreening|null $latestDonorScreening
  * @property-read Collection<int, EventParticipantService> $services
+ * @property-read Collection<int, EventParticipantStatusHistory> $statusHistories
  */
 class EventParticipant extends Model
 {
@@ -48,6 +50,7 @@ class EventParticipant extends Model
         'event_id',
         'participant_id',
         'registration_number',
+        'registration_number_scope',
         'active_registration_number',
         'current_service_post_id',
         'status',
@@ -175,6 +178,14 @@ class EventParticipant extends Model
         return $this->hasMany(EventParticipantService::class);
     }
 
+    /**
+     * @return HasMany<EventParticipantStatusHistory, $this>
+     */
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(EventParticipantStatusHistory::class);
+    }
+
     public function formattedRegistrationNumber(EventSetting $settings): ?string
     {
         if ($this->registration_number === null) {
@@ -190,5 +201,10 @@ class EventParticipant extends Model
 
         return $settings->registrationPrefix($gender)
             .str_pad((string) $this->registration_number, $settings->registration_queue_digits, '0', STR_PAD_LEFT);
+    }
+
+    public static function registrationNumberScopeFor(ParticipantGender $gender): string
+    {
+        return "gender:{$gender->value}";
     }
 }

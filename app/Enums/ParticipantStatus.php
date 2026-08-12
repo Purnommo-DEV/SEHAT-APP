@@ -4,6 +4,9 @@ namespace App\Enums;
 
 enum ParticipantStatus: string
 {
+    case Waiting = 'waiting';
+    case HealthCheck = 'health_check';
+    case Donating = 'donating';
     case Registered = 'registered';
     case CheckedIn = 'checked_in';
     case WaitingService = 'waiting_service';
@@ -22,6 +25,9 @@ enum ParticipantStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Waiting => 'Menunggu',
+            self::HealthCheck => 'Cek Kesehatan',
+            self::Donating => 'Sedang Donor',
             self::Registered => 'Terdaftar',
             self::CheckedIn => 'Check-in',
             self::WaitingService => 'Menunggu pelayanan',
@@ -37,5 +43,23 @@ enum ParticipantStatus: string
             self::Finished => 'Selesai',
             self::Cancelled => 'Dibatalkan',
         };
+    }
+
+    public function isOperationalStage(): bool
+    {
+        return in_array($this, self::operationalStages(), true);
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function operationalStages(): array
+    {
+        return [
+            self::Waiting,
+            self::HealthCheck,
+            self::Donating,
+            self::Finished,
+        ];
     }
 }

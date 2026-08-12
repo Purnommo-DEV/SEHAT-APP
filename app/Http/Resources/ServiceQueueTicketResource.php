@@ -16,14 +16,17 @@ class ServiceQueueTicketResource extends JsonResource
      * @return array{
      *     id: int,
      *     number: string,
+     *     display_number: string,
      *     status: string,
      *     status_label: string,
      *     participant: array{id: int, name: string, phone: string|null, gender: string, gender_value: string, services: list<string>},
+     *     position: array{value: string, label: string},
      *     called_at: string|null,
      *     served_at: string|null,
+     *     skipped_at: string|null,
      *     finished_at: string|null,
      *     called_by: string|null,
-     *     urls: array{call: string, start: string, skip: string, cancel: string, complete: string}
+     *     urls: array{call: string, goto: string, start: string, skip: string, cancel: string, complete: string}
      * }
      */
     public function toArray(Request $request): array
@@ -31,8 +34,14 @@ class ServiceQueueTicketResource extends JsonResource
         return [
             'id' => $this->id,
             'number' => $this->formattedNumber(),
+            'display_number' => $this->eventParticipant->formattedRegistrationNumber($this->event->settings)
+                ?? $this->formattedNumber(),
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
+            'position' => [
+                'value' => $this->eventParticipant->status->value,
+                'label' => $this->eventParticipant->status->label(),
+            ],
             'participant' => [
                 'id' => $this->eventParticipant->participant->id,
                 'name' => $this->eventParticipant->participant->name,
@@ -47,10 +56,12 @@ class ServiceQueueTicketResource extends JsonResource
             ],
             'called_at' => $this->called_at?->toIso8601String(),
             'served_at' => $this->served_at?->toIso8601String(),
+            'skipped_at' => $this->skipped_at?->toIso8601String(),
             'finished_at' => $this->finished_at?->toIso8601String(),
             'called_by' => $this->calledBy?->name,
             'urls' => [
                 'call' => route('events.service-queues.call', [$this->event_id, $this->service_post_id, $this->resource]),
+                'goto' => route('events.service-queues.goto', [$this->event_id, $this->service_post_id, $this->resource]),
                 'start' => route('events.service-queues.start', [$this->event_id, $this->service_post_id, $this->resource]),
                 'skip' => route('events.service-queues.skip', [$this->event_id, $this->service_post_id, $this->resource]),
                 'cancel' => route('events.service-queues.cancel', [$this->event_id, $this->service_post_id, $this->resource]),

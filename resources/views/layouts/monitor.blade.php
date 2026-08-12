@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="emerald">
+<html lang="id" data-theme="emerald" data-realtime-driver="{{ config('foundation.realtime.driver') }}" data-polling-interval-ms="{{ config('foundation.realtime.polling_interval_ms') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

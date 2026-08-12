@@ -63,8 +63,9 @@ class EventManagementTest extends TestCase
             ->assertSee('Aktivitas event')
             ->assertSee('Kelola Pos Pelayanan')
             ->assertSee('Tambah Pos Pelayanan')
-            ->assertSee('Pengaturan Nomor')
+            ->assertSee('Pengaturan Event')
             ->assertSee('Mode nomor donor')
+            ->assertSee('Kapasitas donor')
             ->assertSee('Global');
 
         $this->actingAs($administrator)
@@ -76,7 +77,11 @@ class EventManagementTest extends TestCase
             ->get(route('events.settings.edit', $event))
             ->assertOk()
             ->assertSee('Nomor registrasi')
-            ->assertSee('Mode nomor donor');
+            ->assertSee('Mode nomor donor')
+            ->assertSee('Kapasitas donor paralel')
+            ->assertSee('Jumlah bed laki-laki')
+            ->assertSee('Jumlah bed perempuan')
+            ->assertSee('Total kapasitas event');
 
         $this->actingAs($administrator)
             ->getJson(route('events.data'))
@@ -101,6 +106,8 @@ class EventManagementTest extends TestCase
         $this->assertSame(3, $event->settings->registration_queue_digits);
         $this->assertSame(3, $event->settings->general_queue_digits);
         $this->assertSame('L', $event->settings->male_donor_queue_prefix);
+        $this->assertSame(4, $event->settings->donation_capacity_male);
+        $this->assertSame(4, $event->settings->donation_capacity_female);
         $this->assertDatabaseHas('audit_logs', [
             'event_id' => $event->id,
             'user_id' => $administrator->id,
@@ -332,7 +339,7 @@ class EventManagementTest extends TestCase
 
         $this->actingAs($administrator)
             ->patch(route('events.settings.update', $event), [
-                'registration_number_format' => RegistrationNumberFormat::Uniform->value,
+                'registration_number_format' => RegistrationNumberFormat::GenderPrefix->value,
                 'registration_queue_prefix' => 'REG',
                 'registration_male_prefix' => 'L',
                 'registration_female_prefix' => 'P',
@@ -340,6 +347,8 @@ class EventManagementTest extends TestCase
                 'donor_number_mode' => DonorNumberMode::GenderSeparated->value,
                 'donor_queue_prefix' => 'DNR',
                 'donor_queue_digits' => 4,
+                'donation_capacity_male' => 6,
+                'donation_capacity_female' => 4,
                 'general_queue_digits' => 4,
                 'male_donor_queue_prefix' => 'PRIA',
                 'female_donor_queue_prefix' => 'WNTA',
@@ -349,6 +358,8 @@ class EventManagementTest extends TestCase
         $this->assertDatabaseHas('event_settings', [
             'event_id' => $event->id,
             'donor_number_mode' => DonorNumberMode::GenderSeparated->value,
+            'donation_capacity_male' => 6,
+            'donation_capacity_female' => 4,
             'registration_queue_prefix' => 'REG',
             'registration_queue_digits' => 4,
             'general_queue_digits' => 4,
@@ -367,7 +378,7 @@ class EventManagementTest extends TestCase
         $this->actingAs($administrator)
             ->from(route('events.settings.edit', $event))
             ->patch(route('events.settings.update', $event), [
-                'registration_number_format' => RegistrationNumberFormat::Uniform->value,
+                'registration_number_format' => RegistrationNumberFormat::GenderPrefix->value,
                 'registration_queue_prefix' => 'R',
                 'registration_male_prefix' => 'L',
                 'registration_female_prefix' => 'P',
@@ -375,6 +386,8 @@ class EventManagementTest extends TestCase
                 'donor_number_mode' => DonorNumberMode::Global->value,
                 'donor_queue_prefix' => 'D',
                 'donor_queue_digits' => 5,
+                'donation_capacity_male' => 5,
+                'donation_capacity_female' => 5,
                 'general_queue_digits' => 5,
                 'male_donor_queue_prefix' => 'L',
                 'female_donor_queue_prefix' => 'P',

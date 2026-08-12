@@ -12,20 +12,14 @@ use App\Services\Health\HealthQueueService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\View\View;
 
 class HealthQueueController extends Controller
 {
-    public function index(Event $event, HealthQueueService $healthQueueService): View
+    public function index(Event $event): RedirectResponse
     {
         $this->authorize('viewAny', HealthAssessment::class);
-        $event->load('settings');
-        $tickets = $healthQueueService->ticketsForEvent($event);
 
-        return view('health.index', [
-            'event' => $event,
-            'ticketsJson' => HealthQueueTicketResource::collection($tickets)->resolve(),
-        ]);
+        return redirect()->route('events.operations.health-check', $event);
     }
 
     public function data(

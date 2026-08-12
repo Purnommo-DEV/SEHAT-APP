@@ -36,14 +36,17 @@ class RolePermissionSeeder extends Seeder
             $this->syncRole(UserRole::HealthCommittee, [
                 PermissionName::ManageHealth->value,
                 PermissionName::ManageOwnQueue->value,
+                PermissionName::ManageOperationalWorkflow->value,
             ]);
             $this->syncRole(UserRole::ScreeningCommittee, [
                 PermissionName::ManageScreening->value,
                 PermissionName::ManageOwnQueue->value,
+                PermissionName::ManageOperationalWorkflow->value,
             ]);
             $this->syncRole(UserRole::DonationCommittee, [
                 PermissionName::ManageDonation->value,
                 PermissionName::ManageOwnQueue->value,
+                PermissionName::ManageOperationalWorkflow->value,
             ]);
             $this->syncRole(UserRole::Viewer, [
                 PermissionName::ViewMonitor->value,

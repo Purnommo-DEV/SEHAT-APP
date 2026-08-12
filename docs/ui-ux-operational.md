@@ -17,6 +17,10 @@ Dokumen ini mencatat kontrak pengalaman pengguna pada meja panitia. Workflow dom
 ## Tampilan responsif
 
 - Layout bersifat mobile-first dengan card dan grid yang menyusut tanpa horizontal overflow.
+- Menu panitia memuat Registrasi, Menunggu, Cek Kesehatan, Sedang Donor, Selesai, Screen Petugas, Dashboard, dan TV Monitor.
+- Screen Petugas memuat kontrol Next/Skip/Goto per jalur laki-laki dan perempuan serta daftar posisi peserta aktif agar perpindahan tahap tidak terlihat sebagai peserta yang hilang.
+- Menunggu hanya menampilkan peserta `waiting` dengan aksi **Cek Kesehatan**. Cek Kesehatan hanya menampilkan peserta `health_check` dengan aksi **Donor** atau **Selesai**. Sedang Donor hanya menampilkan peserta `donating` dengan aksi **Selesai** dan Area Selesai read-only.
+- Next, Skip, dan Goto memiliki target sentuh minimal 48 px; Goto memakai modal nomor yang memvalidasi jalur gender dan ticket aktif tanpa membuat nomor baru. Next hanya memilih ticket berstatus Menunggu; ticket yang di-Skip tetap berada pada status peserta Menunggu dan dipanggil kembali melalui Goto.
 - Drawer memenuhi sisi bawah layar ponsel dan berubah menjadi modal terpusat pada layar lebih besar.
 - Input memakai ukuran font aman untuk mencegah zoom otomatis iPhone.
 - Aksi check-in utama tetap terjangkau di bagian bawah layar kecil.
@@ -29,11 +33,11 @@ Peserta laki-laki memakai palet biru/indigo/slate; peserta perempuan memakai pal
 
 ## TV Monitor
 
-Snapshot TV memuat nomor antrean, nama peserta, gender, layanan, status, nama pos, serta instruksi tujuan. Nomor dan nama menggunakan tipografi besar; antrean berikutnya tetap ringkas dan responsif.
+Snapshot TV memuat nomor registrasi, nama peserta, dan gender yang sedang dipanggil. Nomor dan nama menggunakan tipografi besar; antrean berikutnya tetap ringkas dan responsif. Peserta yang telah masuk Cek Kesehatan atau Sedang Donor tetap tampil pada daftar posisi proses per gender sampai selesai.
 
 ## Realtime dan micro UX
 
-- Echo/Reverb tetap menjadi satu-satunya mekanisme sinkronisasi; tidak ada polling atau `location.reload()`.
+- Echo/Reverb menyinkronkan snapshot setiap area kerja, Dashboard, dan TV Monitor; mode polling menjadi fallback jika `REALTIME_DRIVER=polling`. Tidak ada `location.reload()`.
 - Tombol submit dinonaktifkan selama request dan menampilkan spinner.
 - Toast singkat memberi hasil operasi.
 - Empty state menjelaskan tindakan berikutnya.

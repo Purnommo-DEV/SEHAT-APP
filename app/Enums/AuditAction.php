@@ -7,6 +7,8 @@ enum AuditAction: string
     case EventCreated = 'event.created';
     case EventUpdated = 'event.updated';
     case EventSettingsUpdated = 'event.settings_updated';
+    case DonationCapacityUpdated = 'donation_capacity.updated';
+    case QueueReset = 'queue.reset';
     case EventActivated = 'event.activated';
     case EventCompleted = 'event.completed';
     case EventCancelled = 'event.cancelled';
@@ -23,6 +25,9 @@ enum AuditAction: string
     case ParticipantDeleted = 'participant.deleted';
     case ParticipantCheckedIn = 'participant.checked_in';
     case ParticipantRegistrationCancelled = 'participant.registration_cancelled';
+    case ParticipantHealthCheckStarted = 'participant.health_check_started';
+    case ParticipantMovedToDonation = 'participant.moved_to_donation';
+    case ParticipantWorkflowCompleted = 'participant.workflow_completed';
     case QueueTicketCalled = 'queue_ticket.called';
     case QueueTicketServing = 'queue_ticket.serving';
     case QueueTicketSkipped = 'queue_ticket.skipped';
@@ -41,6 +46,8 @@ enum AuditAction: string
             self::EventCreated => 'Event dibuat',
             self::EventUpdated => 'Data event diperbarui',
             self::EventSettingsUpdated => 'Pengaturan antrean diperbarui',
+            self::DonationCapacityUpdated => 'Kapasitas bed donor diperbarui',
+            self::QueueReset => 'Antrean event direset',
             self::EventActivated => 'Event diaktifkan',
             self::EventCompleted => 'Event diselesaikan',
             self::EventCancelled => 'Event dibatalkan',
@@ -57,6 +64,9 @@ enum AuditAction: string
             self::ParticipantDeleted => 'Peserta dihapus',
             self::ParticipantCheckedIn => 'Peserta check-in',
             self::ParticipantRegistrationCancelled => 'Registrasi peserta dibatalkan',
+            self::ParticipantHealthCheckStarted => 'Cek kesehatan dimulai',
+            self::ParticipantMovedToDonation => 'Peserta masuk proses donor',
+            self::ParticipantWorkflowCompleted => 'Proses peserta selesai',
             self::QueueTicketCalled => 'Nomor antrean dipanggil',
             self::QueueTicketServing => 'Pelayanan dimulai',
             self::QueueTicketSkipped => 'Nomor antrean dilewati',

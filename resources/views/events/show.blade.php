@@ -20,20 +20,20 @@
                 </div>
             </div>
 
-            @if ($event->status->value === 'draft' || $canManageServicePosts)
-                <div class="flex flex-wrap gap-2">
-                    @if ($canManageServicePosts)
-                        <a href="#jalur-pelayanan" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Kelola Pos Pelayanan</a>
-                        @if ($canCreateServicePost)
-                            <a href="{{ route('events.service-posts.create', $event) }}" class="btn border-0 bg-emerald-600 text-white hover:bg-emerald-700">Tambah Pos Pelayanan</a>
-                        @endif
+            <div class="flex flex-wrap gap-2">
+                @if ($canManageServicePosts)
+                    <a href="#jalur-pelayanan" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Kelola Pos Pelayanan</a>
+                    @if ($canCreateServicePost)
+                        <a href="{{ route('events.service-posts.create', $event) }}" class="btn border-0 bg-emerald-600 text-white hover:bg-emerald-700">Tambah Pos Pelayanan</a>
                     @endif
-                    @if ($event->status->value === 'draft')
-                        <a href="{{ route('events.edit', $event) }}" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Ubah event</a>
-                        <a href="{{ route('events.settings.edit', $event) }}" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Pengaturan Nomor</a>
-                    @endif
-                </div>
-            @endif
+                @endif
+                @can('update', $event)
+                    <a href="{{ route('events.settings.edit', $event) }}" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Pengaturan Event</a>
+                @endcan
+                @if ($event->status->value === 'draft')
+                    <a href="{{ route('events.edit', $event) }}" class="btn btn-outline border-slate-300 text-slate-700 hover:border-emerald-600 hover:bg-emerald-50">Ubah event</a>
+                @endif
+            </div>
         </div>
 
         <nav aria-label="Bagian event" class="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -84,6 +84,10 @@
                     <div>
                         <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Mode nomor donor</dt>
                         <dd class="mt-2 font-semibold text-slate-800">{{ $event->settings->donor_number_mode->label() }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Kapasitas donor</dt>
+                        <dd class="mt-2 font-semibold text-slate-800">Laki-laki {{ $event->settings->donation_capacity_male }} · Perempuan {{ $event->settings->donation_capacity_female }}</dd>
                     </div>
                 </dl>
 
@@ -156,7 +160,7 @@
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Workflow Builder</p>
                         <h2 class="mt-2 text-2xl font-black text-slate-900">Jalur Pelayanan</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">Routing mengikuti layanan yang dipilih: kelayakan donor, donor jika layak, lalu pemeriksaan kesehatan bila dipilih.</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-500">Routing mengikuti layanan yang dipilih melalui tahap Menunggu, Cek Kesehatan, Sedang Donor, dan Selesai.</p>
                     </div>
                     @if ($canCreateServicePost)
                         <a href="{{ route('events.service-posts.create', $event) }}" class="btn border-0 bg-emerald-600 text-white hover:bg-emerald-700">Tambah Pos</a>

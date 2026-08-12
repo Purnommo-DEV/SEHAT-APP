@@ -27,8 +27,16 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading();
 
         RateLimiter::for('operational', function (Request $request): Limit {
+            if (in_array($request->method(), ['GET', 'HEAD'], true)) {
+                // A single panitia browser can keep up to nine independent
+                // operational snapshots current every three seconds. Read
+                // polling must not consume the mutation budget.
+                return Limit::perMinute(600)
+                    ->by('read:'.$request->ip());
+            }
+
             return Limit::perMinute(180)
-                ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip()));
+                ->by('write:'.($request->user()?->getAuthIdentifier() ?? $request->ip()));
         });
 
         RateLimiter::for('reports', function (Request $request): Limit {

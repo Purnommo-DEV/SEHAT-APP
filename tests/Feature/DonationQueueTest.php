@@ -220,8 +220,7 @@ class DonationQueueTest extends TestCase
 
         $this->actingAs($administrator)
             ->get(route('events.donation.index', $event))
-            ->assertOk()
-            ->assertSee('Antrean Donor');
+            ->assertRedirect(route('events.operations.health-check', $event));
 
         $this->actingAs($administrator)
             ->getJson(route('events.donation.data', $event))

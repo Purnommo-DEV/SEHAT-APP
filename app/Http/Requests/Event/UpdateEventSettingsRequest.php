@@ -24,14 +24,16 @@ class UpdateEventSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'registration_number_format' => ['required', Rule::enum(RegistrationNumberFormat::class)],
-            'registration_queue_prefix' => ['required', 'string', 'min:1', 'max:10', 'regex:/^[A-Z0-9-]+$/'],
+            'registration_number_format' => ['required', Rule::in([RegistrationNumberFormat::GenderPrefix->value])],
+            'registration_queue_prefix' => ['sometimes', 'string', 'min:1', 'max:10', 'regex:/^[A-Z0-9-]+$/'],
             'registration_male_prefix' => ['required', 'string', 'min:1', 'max:10', 'regex:/^[A-Z0-9-]+$/'],
             'registration_female_prefix' => ['required', 'string', 'min:1', 'max:10', 'regex:/^[A-Z0-9-]+$/', 'different:registration_male_prefix'],
             'registration_queue_digits' => ['required', 'integer', 'min:1', 'max:6'],
             'donor_number_mode' => ['required', Rule::enum(DonorNumberMode::class)],
             'donor_queue_prefix' => ['required', 'string', 'min:1', 'max:10', 'regex:/^[A-Z0-9-]+$/'],
             'donor_queue_digits' => ['required', 'integer', 'min:1', 'max:6'],
+            'donation_capacity_male' => ['required', 'integer', 'min:1', 'max:50'],
+            'donation_capacity_female' => ['required', 'integer', 'min:1', 'max:50'],
             'general_queue_digits' => ['sometimes', 'integer', 'min:1', 'max:6'],
             'male_donor_queue_prefix' => ['required', 'string', 'min:1', 'max:5', 'regex:/^[A-Z0-9]+$/'],
             'female_donor_queue_prefix' => ['required', 'string', 'min:1', 'max:5', 'regex:/^[A-Z0-9]+$/', 'different:male_donor_queue_prefix'],
@@ -55,11 +57,14 @@ class UpdateEventSettingsRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $normalized = [
-            'registration_queue_prefix' => Str::upper(trim((string) $this->input('registration_queue_prefix'))),
             'registration_male_prefix' => Str::upper(trim((string) $this->input('registration_male_prefix'))),
             'registration_female_prefix' => Str::upper(trim((string) $this->input('registration_female_prefix'))),
             'donor_queue_prefix' => Str::upper(trim((string) $this->input('donor_queue_prefix'))),
         ];
+
+        if ($this->has('registration_queue_prefix')) {
+            $normalized['registration_queue_prefix'] = Str::upper(trim((string) $this->input('registration_queue_prefix')));
+        }
 
         if ($this->has('male_donor_queue_prefix')) {
             $normalized['male_donor_queue_prefix'] = Str::upper(trim((string) $this->input('male_donor_queue_prefix')));

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\CheckIn;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\QueueTicketResource;
 use App\Models\Event;
-use App\Models\EventParticipant;
 use App\Models\QueueTicket;
 use App\Services\Workflow\WorkflowDefinitionService;
 use Illuminate\Http\JsonResponse;
@@ -16,8 +15,6 @@ class CheckInDataController extends Controller
         Event $event,
         WorkflowDefinitionService $workflowService,
     ): JsonResponse {
-        $this->authorize('viewAny', [EventParticipant::class, $event]);
-
         $tickets = QueueTicket::query()
             ->where('event_id', $event->id)
             ->whereIn('id', QueueTicket::query()

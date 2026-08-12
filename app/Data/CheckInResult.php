@@ -12,5 +12,6 @@ final readonly class CheckInResult
         public QueueTicket $queueTicket,
         public string $registrationNumber,
         public bool $alreadyCheckedIn,
+        public bool $recoveredMissingTicket = false,
     ) {}
 }

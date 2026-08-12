@@ -13,8 +13,10 @@ use App\Enums\QueueType;
 use App\Events\ParticipantCheckedIn;
 use App\Models\Event;
 use App\Models\EventParticipant;
+use App\Models\EventParticipantStatusHistory;
 use App\Models\Participant;
 use App\Models\QueueTicket;
+use App\Models\ServicePost;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Queue\QueueNumberGenerator;
@@ -43,7 +45,7 @@ class CheckInService
     public function checkIn(
         Event $event,
         Participant $participant,
-        User $actor,
+        ?User $actor,
         array $services = [ParticipantServiceType::Donor],
     ): CheckInResult {
         $serviceTypes = $this->normalizeServiceTypes($services);
@@ -68,16 +70,78 @@ class CheckInService
                     ]);
                 }
 
-                $existingTicket = QueueTicket::query()
-                    ->where('event_participant_id', $eventParticipant->id)
-                    ->with(['event.settings', 'eventParticipant.participant', 'servicePost'])
-                    ->oldest('id')
-                    ->firstOrFail();
+                $existingTicket = $this->existingQueueTicket($eventParticipant);
+
+                if ($existingTicket instanceof QueueTicket) {
+                    return new CheckInResult(
+                        $eventParticipant,
+                        $existingTicket,
+                        $eventParticipant->formattedRegistrationNumber($settings) ?? $existingTicket->formattedNumber(),
+                        true,
+                    );
+                }
+
+                if ($eventParticipant->status !== ParticipantStatus::Waiting) {
+                    throw ValidationException::withMessages([
+                        'participant_id' => 'Riwayat antrean peserta tidak lengkap dan tidak dapat dibuat ulang setelah proses pelayanan dimulai.',
+                    ]);
+                }
+
+                if ($eventParticipant->registration_number === null) {
+                    $eventParticipant->registration_number = $this->registrationNumberGenerator->next(
+                        $lockedEvent,
+                        $lockedParticipant->gender,
+                    );
+                    $eventParticipant->active_registration_number = $eventParticipant->registration_number;
+                }
+
+                if ($eventParticipant->registration_number_scope === null) {
+                    $eventParticipant->registration_number_scope = EventParticipant::registrationNumberScopeFor(
+                        $lockedParticipant->gender,
+                    );
+                }
+
+                $selectedServices = $this->selectedServices($eventParticipant);
+                $recoveryServices = $selectedServices === [] ? $serviceTypes : $selectedServices;
+                $initialRoute = $this->participantServiceWorkflow->registrationRoute(
+                    $lockedEvent,
+                    $recoveryServices,
+                    true,
+                );
+
+                if ($selectedServices === []) {
+                    $this->syncSelectedServices($eventParticipant, $recoveryServices);
+                }
+
+                $eventParticipant->current_service_post_id = $initialRoute->servicePost->id;
+                $eventParticipant->save();
+                $recoveredTicket = $this->createInitialQueueTicket(
+                    $lockedEvent,
+                    $eventParticipant,
+                    $initialRoute->servicePost,
+                );
+                $recoveredTicket->load(['event.settings', 'eventParticipant.participant', 'eventParticipant.services', 'servicePost']);
+                $eventParticipant->load(['participant', 'event', 'currentServicePost', 'checkedInBy', 'services']);
+
+                $this->auditLogger->record(
+                    actor: $actor,
+                    subject: $eventParticipant,
+                    action: AuditAction::ParticipantCheckedIn,
+                    eventId: $lockedEvent->id,
+                    oldValues: ['queue_ticket_id' => null],
+                    newValues: [
+                        'registration_number' => $eventParticipant->formattedRegistrationNumber($settings),
+                        'queue_ticket_id' => $recoveredTicket->id,
+                        'queue_number' => $recoveredTicket->formattedNumber(),
+                        'recovered_missing_initial_ticket' => true,
+                    ],
+                );
 
                 return new CheckInResult(
                     $eventParticipant,
-                    $existingTicket,
-                    $eventParticipant->formattedRegistrationNumber($settings) ?? $existingTicket->formattedNumber(),
+                    $recoveredTicket,
+                    $eventParticipant->formattedRegistrationNumber($settings) ?? $recoveredTicket->formattedNumber(),
+                    true,
                     true,
                 );
             }
@@ -97,31 +161,34 @@ class CheckInService
             }
 
             $oldValues = ['status' => $eventParticipant->status->value];
-            $eventParticipant->registration_number = $this->registrationNumberGenerator->next($lockedEvent);
+            $eventParticipant->registration_number = $this->registrationNumberGenerator->next(
+                $lockedEvent,
+                $lockedParticipant->gender,
+            );
+            $eventParticipant->registration_number_scope = EventParticipant::registrationNumberScopeFor(
+                $lockedParticipant->gender,
+            );
             $eventParticipant->active_registration_number = $eventParticipant->registration_number;
-            $eventParticipant->status = $initialRoute->participantStatus;
+            $eventParticipant->status = ParticipantStatus::Waiting;
             $eventParticipant->current_service_post_id = $initialRoute->servicePost->id;
             $eventParticipant->checked_in_at = now();
-            $eventParticipant->checked_in_by = $actor->id;
+            $eventParticipant->checked_in_by = $actor?->id;
             $eventParticipant->save();
 
-            foreach ($serviceTypes as $serviceType) {
-                $eventParticipant->services()->create([
-                    'event_id' => $lockedEvent->id,
-                    'service' => $serviceType,
-                    'status' => $serviceType->initialStatus($serviceTypes),
-                    'selected_at' => now(),
-                ]);
-            }
-
-            $queueTicket = QueueTicket::query()->create([
+            EventParticipantStatusHistory::query()->create([
                 'event_id' => $lockedEvent->id,
                 'event_participant_id' => $eventParticipant->id,
-                'service_post_id' => $initialRoute->servicePost->id,
-                'queue_type' => QueueType::General,
-                'number' => $this->queueNumberGenerator->next($lockedEvent, $initialRoute->servicePost),
-                'status' => QueueTicketStatus::Waiting,
+                'from_status' => $oldValues['status'],
+                'to_status' => ParticipantStatus::Waiting,
+                'changed_by' => $actor?->id,
             ]);
+
+            $this->syncSelectedServices($eventParticipant, $serviceTypes);
+            $queueTicket = $this->createInitialQueueTicket(
+                $lockedEvent,
+                $eventParticipant,
+                $initialRoute->servicePost,
+            );
             $queueTicket->load(['event.settings', 'eventParticipant.participant', 'eventParticipant.services', 'servicePost']);
             $eventParticipant->load(['participant', 'event', 'currentServicePost', 'checkedInBy', 'services']);
 
@@ -169,12 +236,17 @@ class CheckInService
                     $serviceTypes,
                 ),
             );
+        } elseif ($result->recoveredMissingTicket) {
+            $this->realtimePublisher->queueChanged(
+                $result->queueTicket,
+                AuditAction::ParticipantCheckedIn,
+            );
         }
 
         return $result;
     }
 
-    public function cancel(Event $event, EventParticipant $eventParticipant, User $actor): EventParticipant
+    public function cancel(Event $event, EventParticipant $eventParticipant, ?User $actor): EventParticipant
     {
         /** @var EventParticipant $cancelled */
         $cancelled = $this->database->transaction(function () use (
@@ -236,7 +308,7 @@ class CheckInService
                 $this->queueStateMachine->transition($ticket, QueueTicketStatus::Cancelled);
                 $ticket->active_number = null;
                 $ticket->cancelled_at = now();
-                $ticket->cancelled_by = $actor->id;
+                $ticket->cancelled_by = $actor?->id;
                 $ticket->save();
             }
 
@@ -250,7 +322,7 @@ class CheckInService
             $participant->active_registration_number = null;
             $participant->current_service_post_id = null;
             $participant->cancelled_at = now();
-            $participant->cancelled_by = $actor->id;
+            $participant->cancelled_by = $actor?->id;
             $participant->completed_at = now();
             $participant->save();
 
@@ -292,6 +364,76 @@ class CheckInService
                 'event' => 'Check-in hanya dapat dilakukan pada event yang sedang aktif.',
             ]);
         }
+    }
+
+    private function existingQueueTicket(EventParticipant $eventParticipant): ?QueueTicket
+    {
+        return QueueTicket::query()
+            ->where('event_participant_id', $eventParticipant->id)
+            ->with(['event.settings', 'eventParticipant.participant', 'eventParticipant.services', 'servicePost'])
+            ->oldest('id')
+            ->first();
+    }
+
+    /**
+     * @return list<ParticipantServiceType>
+     */
+    private function selectedServices(EventParticipant $eventParticipant): array
+    {
+        return array_values(
+            $eventParticipant->services()
+                ->lockForUpdate()
+                ->get()
+                ->map(fn ($service): ParticipantServiceType => $service->service)
+                ->all(),
+        );
+    }
+
+    /**
+     * @param  list<ParticipantServiceType>  $serviceTypes
+     */
+    private function syncSelectedServices(EventParticipant $eventParticipant, array $serviceTypes): void
+    {
+        $selectedValues = array_map(
+            fn (ParticipantServiceType $service): string => $service->value,
+            $serviceTypes,
+        );
+        $existingServices = $eventParticipant->services()
+            ->lockForUpdate()
+            ->get()
+            ->keyBy(fn ($service): string => $service->service->value);
+
+        $eventParticipant->services()
+            ->whereNotIn('service', $selectedValues)
+            ->delete();
+
+        foreach ($serviceTypes as $serviceType) {
+            if ($existingServices->has($serviceType->value)) {
+                continue;
+            }
+
+            $eventParticipant->services()->create([
+                'event_id' => $eventParticipant->event_id,
+                'service' => $serviceType,
+                'status' => $serviceType->initialStatus($serviceTypes),
+                'selected_at' => now(),
+            ]);
+        }
+    }
+
+    private function createInitialQueueTicket(
+        Event $event,
+        EventParticipant $eventParticipant,
+        ServicePost $servicePost,
+    ): QueueTicket {
+        return QueueTicket::query()->create([
+            'event_id' => $event->id,
+            'event_participant_id' => $eventParticipant->id,
+            'service_post_id' => $servicePost->id,
+            'queue_type' => QueueType::General,
+            'number' => $this->queueNumberGenerator->next($event, $servicePost),
+            'status' => QueueTicketStatus::Waiting,
+        ]);
     }
 
     /**

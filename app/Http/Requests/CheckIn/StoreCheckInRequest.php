@@ -4,7 +4,6 @@ namespace App\Http\Requests\CheckIn;
 
 use App\Enums\ParticipantServiceType;
 use App\Models\Event;
-use App\Models\EventParticipant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +13,7 @@ class StoreCheckInRequest extends FormRequest
     {
         $event = $this->route('event');
 
-        return $event instanceof Event && ($this->user()?->can('create', [EventParticipant::class, $event]) ?? false);
+        return $event instanceof Event;
     }
 
     /**

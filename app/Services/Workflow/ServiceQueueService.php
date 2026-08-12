@@ -74,7 +74,35 @@ class ServiceQueueService
         return $active->concat($finished)->unique('id')->values();
     }
 
-    public function call(Event $event, ServicePost $servicePost, QueueTicket $queueTicket, User $actor): QueueTicket
+    /**
+     * Tickets valid for the waiting-area controls. Terminal tickets must never
+     * be offered as a Goto target.
+     *
+     * @return Collection<int, QueueTicket>
+     */
+    public function ticketsForWaitingArea(Event $event, ServicePost $servicePost): Collection
+    {
+        return $this->ticketsForPost($event, $servicePost)
+            ->reject(fn (QueueTicket $ticket): bool => in_array($ticket->status, [
+                QueueTicketStatus::Finished,
+                QueueTicketStatus::Cancelled,
+            ], true))
+            ->values();
+    }
+
+    public function controlPostForWaitingArea(Event $event): ?ServicePost
+    {
+        return ServicePost::query()
+            ->where('event_id', $event->id)
+            ->where('is_active', true)
+            ->orderByRaw(
+                "case behavior when 'health_form' then 0 when 'donation_form' then 1 else 2 end",
+            )
+            ->orderBy('sequence')
+            ->first();
+    }
+
+    public function call(Event $event, ServicePost $servicePost, QueueTicket $queueTicket, ?User $actor): QueueTicket
     {
         return $this->updateTicket(
             $event,
@@ -85,12 +113,15 @@ class ServiceQueueService
             AuditAction::QueueTicketCalled,
             function (QueueTicket $ticket) use ($actor): void {
                 $ticket->called_at = now();
-                $ticket->called_by = $actor->id;
+                $ticket->called_by = $actor?->id;
+            },
+            function (Event $event, ServicePost $post, QueueTicket $ticket, EventParticipant $participant): void {
+                $this->ensureNoOtherActiveCallInLane($event, $post, $ticket, $participant);
             },
         );
     }
 
-    public function skip(Event $event, ServicePost $servicePost, QueueTicket $queueTicket, User $actor): QueueTicket
+    public function skip(Event $event, ServicePost $servicePost, QueueTicket $queueTicket, ?User $actor): QueueTicket
     {
         return $this->updateTicket(
             $event,
@@ -99,7 +130,9 @@ class ServiceQueueService
             $actor,
             QueueTicketStatus::Skipped,
             AuditAction::QueueTicketSkipped,
-            fn (): null => null,
+            function (QueueTicket $ticket): void {
+                $ticket->skipped_at = now();
+            },
         );
     }
 
@@ -365,15 +398,17 @@ class ServiceQueueService
 
     /**
      * @param  callable(QueueTicket): mixed  $mutate
+     * @param  (callable(Event, ServicePost, QueueTicket, EventParticipant): mixed)|null  $beforeTransition
      */
     private function updateTicket(
         Event $event,
         ServicePost $servicePost,
         QueueTicket $queueTicket,
-        User $actor,
+        ?User $actor,
         QueueTicketStatus $status,
         AuditAction $action,
         callable $mutate,
+        ?callable $beforeTransition = null,
     ): QueueTicket {
         $updatedTicket = $this->database->transaction(function () use (
             $event,
@@ -383,10 +418,14 @@ class ServiceQueueService
             $status,
             $action,
             $mutate,
+            $beforeTransition,
         ): QueueTicket {
             $lockedEvent = $this->lockActiveEvent($event);
-            [, $lockedTicket] = $this->lockContext($lockedEvent, $servicePost, $queueTicket);
+            [$lockedPost, $lockedTicket, $participant] = $this->lockContext($lockedEvent, $servicePost, $queueTicket);
             $oldValues = $this->ticketSnapshot($lockedTicket);
+            if ($beforeTransition !== null) {
+                $beforeTransition($lockedEvent, $lockedPost, $lockedTicket, $participant);
+            }
             $this->queueStateMachine->transition($lockedTicket, $status);
             $mutate($lockedTicket);
             $lockedTicket->save();
@@ -441,6 +480,35 @@ class ServiceQueueService
         }
 
         return [$lockedPost, $lockedTicket, $participant];
+    }
+
+    private function ensureNoOtherActiveCallInLane(
+        Event $event,
+        ServicePost $servicePost,
+        QueueTicket $queueTicket,
+        EventParticipant $participant,
+    ): void {
+        $participant->loadMissing('participant');
+
+        $hasActiveCall = QueueTicket::query()
+            ->where('event_id', $event->id)
+            ->where('service_post_id', $servicePost->id)
+            ->where('id', '!=', $queueTicket->id)
+            ->whereIn('status', [
+                QueueTicketStatus::Calling->value,
+                QueueTicketStatus::Serving->value,
+            ])
+            ->whereHas(
+                'eventParticipant.participant',
+                fn ($query) => $query->where('gender', $participant->participant->gender->value),
+            )
+            ->exists();
+
+        if ($hasActiveCall) {
+            throw ValidationException::withMessages([
+                'queue_ticket' => 'Masih ada nomor pada jalur gender ini yang sedang dipanggil.',
+            ]);
+        }
     }
 
     private function moveTicketToServing(QueueTicket $ticket, User $actor): void
@@ -506,6 +574,7 @@ class ServiceQueueService
             'status' => $ticket->status->value,
             'called_at' => $ticket->called_at?->toIso8601String(),
             'served_at' => $ticket->served_at?->toIso8601String(),
+            'skipped_at' => $ticket->skipped_at?->toIso8601String(),
             'finished_at' => $ticket->finished_at?->toIso8601String(),
             'cancelled_at' => $ticket->cancelled_at?->toIso8601String(),
             'cancelled_by' => $ticket->cancelled_by,
@@ -515,7 +584,7 @@ class ServiceQueueService
     /**
      * @param  array<string, mixed>  $oldValues
      */
-    private function writeTicketAudit(QueueTicket $ticket, User $actor, AuditAction $action, array $oldValues): void
+    private function writeTicketAudit(QueueTicket $ticket, ?User $actor, AuditAction $action, array $oldValues): void
     {
         $this->auditLogger->record(
             actor: $actor,
