@@ -31,31 +31,31 @@
                     <div class="mt-4 grid gap-2 sm:grid-cols-2">
                         <form x-show="primaryParticipant.can_start_health_check" :action="primaryParticipant.urls.health_check" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-cyan-600 text-white hover:bg-cyan-700" x-text="primaryParticipant.can_continue_to_health_check ? 'LANJUT KE CEK KESEHATAN' : 'CEK KESEHATAN'"></button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-cyan-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-md" x-text="primaryParticipant.can_continue_to_health_check ? 'LANJUT KE CEK KESEHATAN' : 'CEK KESEHATAN'"></button>
                         </form>
                         <form x-show="primaryParticipant.can_start_eligibility" :action="primaryParticipant.urls.eligibility" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-violet-600 text-white hover:bg-violet-700">CEK KELAYAKAN DONOR</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-violet-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-md">CEK KELAYAKAN DONOR</button>
                         </form>
                         <form x-show="primaryParticipant.can_decide_eligibility" :action="primaryParticipant.urls.eligible" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">LAYAK DONOR</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">LAYAK DONOR</button>
                         </form>
                         <form x-show="primaryParticipant.can_decide_eligibility" :action="primaryParticipant.urls.ineligible" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-slate-700 text-white hover:bg-slate-800">TIDAK LAYAK DONOR</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-slate-700 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md">TIDAK LAYAK DONOR</button>
                         </form>
                         <form x-show="primaryParticipant.can_donate" :action="primaryParticipant.urls.donate" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-rose-600 text-white hover:bg-rose-700">LANJUT KE DONOR</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-rose-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-700 hover:shadow-md">LANJUT KE DONOR</button>
                         </form>
                         <form x-show="primaryParticipant.can_complete_before_donation" :action="primaryParticipant.urls.complete_before_donation" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">SELESAI</button>
                         </form>
                         <form x-show="primaryParticipant.status === 'donating'" :action="primaryParticipant.urls.complete" method="POST" data-realtime-submit data-operation-kind="operational">
                             @csrf
-                            <button type="submit" class="btn min-h-12 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button>
+                            <button type="submit" class="btn min-h-12 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md">SELESAI</button>
                         </form>
                     </div>
                 </div>
@@ -81,7 +81,7 @@
                             @csrf
                             <button
                                 type="submit"
-                                class="btn min-h-12 w-full border-0 transition duration-150"
+                                class="btn min-h-12 w-full rounded-xl border-0 transition duration-150"
                                 :class="skippableTicketFor() ? 'cursor-pointer bg-amber-500 text-slate-950 hover:-translate-y-0.5 hover:bg-amber-400 hover:shadow-lg' : 'cursor-not-allowed bg-slate-200 text-slate-500 shadow-none'"
                                 :disabled="!skippableTicketFor()"
                                 :title="skippableTicketFor() ? 'Lewati Peserta Saat Ini' : 'Belum ada peserta yang sedang dipanggil'"
@@ -102,7 +102,7 @@
                             @csrf
                             <button
                                 type="submit"
-                                class="btn min-h-12 w-full border-0 transition duration-150"
+                                class="btn min-h-12 w-full rounded-xl border-0 transition duration-150"
                                 :class="canCallNext ? 'cursor-pointer bg-indigo-600 text-white hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-lg' : 'cursor-not-allowed bg-slate-200 text-slate-500 shadow-none'"
                                 :disabled="!nextTicketFor()"
                                 :title="canCallNext ? 'Panggil Peserta Berikutnya' : (currentTicket ? 'Selesaikan atau Skip peserta yang sedang dipanggil' : 'Belum ada peserta menunggu')"
@@ -116,7 +116,7 @@
                         <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-max max-w-48 -translate-x-1/2 rounded-lg bg-slate-950 px-3 py-2 text-center text-xs font-bold text-white shadow-lg sm:group-focus-within:block sm:group-hover:block">Pilih Peserta</span>
                         <button
                             type="button"
-                            class="btn min-h-12 w-full cursor-pointer border-0 bg-slate-800 text-white transition duration-150 hover:-translate-y-0.5 hover:bg-slate-700 hover:shadow-lg"
+                            class="btn min-h-12 w-full cursor-pointer rounded-xl border-0 bg-slate-800 text-white transition duration-150 hover:-translate-y-0.5 hover:bg-slate-700 hover:shadow-lg"
                             @click="openGoto()"
                             title="Pilih Peserta"
                             aria-label="Buka Goto Nomor jalur Global"
@@ -174,85 +174,99 @@
     </aside>
 </section>
 
-<section class="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Ringkasan status operasional">
-    <article class="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
-        <p class="text-xs font-bold uppercase tracking-wide text-cyan-700">Cek Kesehatan</p>
-        <p class="mt-2 text-2xl font-black text-slate-900" x-text="healthParticipants.length"></p>
-    </article>
-    <article class="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
-        <p class="text-xs font-bold uppercase tracking-wide text-violet-700">Kelayakan</p>
-        <p class="mt-2 text-2xl font-black text-slate-900" x-text="eligibilityParticipants.length"></p>
-    </article>
-    <article class="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
+<section class="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.6fr)]" aria-label="Ringkasan status operasional">
+    <article class="min-w-0 rounded-2xl border border-rose-100 bg-rose-50/70 p-4 sm:p-5">
         <p class="text-xs font-bold uppercase tracking-wide text-rose-700">Sedang Donor</p>
-        <p class="mt-2 text-2xl font-black text-slate-900"><span x-text="capacity?.total?.active ?? 0"></span> / <span x-text="capacity?.total?.capacity ?? 0"></span> <span class="text-sm">BED TERISI</span></p>
-        <div class="mt-3 space-y-1.5 text-xs font-bold text-slate-600">
-            <p class="flex items-center justify-between gap-2"><span>Laki-laki</span><span><span x-text="capacityFor('male').active"></span>/<span x-text="capacityFor('male').capacity"></span> bed <strong x-show="capacityFor('male').is_full" x-cloak class="text-rose-700">— PENUH</strong></span></p>
-            <p class="flex items-center justify-between gap-2"><span>Perempuan</span><span><span x-text="capacityFor('female').active"></span>/<span x-text="capacityFor('female').capacity"></span> bed <strong x-show="capacityFor('female').is_full" x-cloak class="text-rose-700">— PENUH</strong></span></p>
+        <div class="mt-3 rounded-xl border border-rose-100 bg-white/75 px-3 py-3 text-center sm:text-left">
+            <p class="font-mono text-2xl font-black leading-none tabular-nums text-slate-900"><span x-text="capacity?.total?.active ?? 0"></span> / <span x-text="capacity?.total?.capacity ?? 0"></span></p>
+            <p class="mt-1 text-[0.68rem] font-black uppercase tracking-[0.14em] text-rose-700">BED TERISI</p>
         </div>
+        <dl class="mt-3 grid grid-cols-2 gap-2 border-t border-rose-100 pt-3 text-xs font-bold text-slate-600">
+            <div class="min-w-0 rounded-xl border border-rose-100 bg-white/70 p-2.5">
+                <dt class="truncate">Laki-laki</dt>
+                <dd class="mt-1 whitespace-nowrap font-mono text-sm font-black tabular-nums text-slate-800"><span x-text="capacityFor('male').active"></span> / <span x-text="capacityFor('male').capacity"></span> bed</dd>
+                <strong x-show="capacityFor('male').is_full" x-cloak class="mt-1 block text-[0.68rem] tracking-wide text-rose-700">PENUH</strong>
+            </div>
+            <div class="min-w-0 rounded-xl border border-rose-100 bg-white/70 p-2.5">
+                <dt class="truncate">Perempuan</dt>
+                <dd class="mt-1 whitespace-nowrap font-mono text-sm font-black tabular-nums text-slate-800"><span x-text="capacityFor('female').active"></span> / <span x-text="capacityFor('female').capacity"></span> bed</dd>
+                <strong x-show="capacityFor('female').is_full" x-cloak class="mt-1 block text-[0.68rem] tracking-wide text-rose-700">PENUH</strong>
+            </div>
+        </dl>
     </article>
-    <article class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+    <article class="flex min-h-28 flex-col justify-between rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 sm:min-h-0 sm:p-5">
         <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Selesai</p>
         <p class="mt-2 text-2xl font-black text-slate-900" x-text="finishedCount"></p>
     </article>
 </section>
 
 <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-label="Peserta dalam proses">
-    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+    <header class="border-b border-slate-100 px-5 py-4 sm:px-6">
         <div>
             <p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Proses berjalan</p>
             <h2 class="mt-1 text-lg font-black text-slate-900">Peserta di setiap posisi</h2>
         </div>
-        <span class="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-black text-slate-700" x-text="activePositions.length"></span>
     </header>
 
-    <div class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-        <section class="p-4" aria-label="Peserta cek kelayakan donor">
-            <p class="mb-3 text-sm font-black text-violet-700">Cek Kelayakan Donor</p>
-            <p x-show="secondaryEligibilityParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+    <div class="grid gap-3 p-3 lg:grid-cols-3 lg:p-4">
+        <section class="min-w-0 rounded-2xl border border-violet-200 bg-violet-50/45 p-4 shadow-sm" aria-label="Peserta cek kelayakan donor">
+            <header class="mb-3 flex items-center justify-between gap-3 border-b border-violet-100 pb-3">
+                <p class="text-sm font-black text-violet-700">CEK KELAYAKAN DONOR</p>
+                <span class="shrink-0 rounded-xl bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-700"><span x-text="eligibilityParticipants.length"></span> peserta</span>
+            </header>
+            <p x-show="secondaryEligibilityParticipants.length === 0" x-cloak class="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-violet-200 bg-white/70 px-3 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
             <ol x-show="secondaryEligibilityParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryEligibilityParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-violet-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
-                        <p class="font-mono text-base font-black text-violet-700" x-text="participant.number"></p>
+                        <p class="text-xs font-bold text-slate-500">Urutan Registrasi: <span class="font-black text-slate-700" x-text="participant.registration_order"></span></p>
+                        <p class="mt-2 font-mono text-base font-black text-violet-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
                         <div class="mt-3 grid gap-2">
                             <p x-show="participant.eligibility.result" class="rounded-xl px-3 py-2 text-xs font-black" :class="participant.eligibility.result === 'eligible' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'" x-text="participant.eligibility.result === 'eligible' ? 'LAYAK DONOR' : 'TIDAK LAYAK DONOR'"></p>
-                            <form x-show="participant.can_decide_eligibility" :action="participant.urls.eligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">LAYAK DONOR</button></form>
-                            <form x-show="participant.can_decide_eligibility" :action="participant.urls.ineligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-slate-700 text-white hover:bg-slate-800">TIDAK LAYAK DONOR</button></form>
-                            <form x-show="participant.can_continue_to_health_check" :action="participant.urls.health_check" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-cyan-600 text-white hover:bg-cyan-700">LANJUT KE CEK KESEHATAN</button></form>
+                            <form x-show="participant.can_decide_eligibility" :action="participant.urls.eligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md">LAYAK DONOR</button></form>
+                            <form x-show="participant.can_decide_eligibility" :action="participant.urls.ineligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-slate-700 text-white shadow-sm transition hover:bg-slate-800 hover:shadow-md">TIDAK LAYAK DONOR</button></form>
+                            <form x-show="participant.can_continue_to_health_check" :action="participant.urls.health_check" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-cyan-600 text-white shadow-sm transition hover:bg-cyan-700 hover:shadow-md">LANJUT KE CEK KESEHATAN</button></form>
                         </div>
                     </li>
                 </template>
             </ol>
         </section>
 
-        <section class="p-4" aria-label="Peserta cek kesehatan">
-            <p class="mb-3 text-sm font-black text-cyan-700">CEK KESEHATAN</p>
-            <p x-show="secondaryHealthParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+        <section class="min-w-0 rounded-2xl border border-cyan-200 bg-cyan-50/45 p-4 shadow-sm" aria-label="Peserta cek kesehatan">
+            <header class="mb-3 flex items-center justify-between gap-3 border-b border-cyan-100 pb-3">
+                <p class="text-sm font-black text-cyan-700">CEK KESEHATAN</p>
+                <span class="shrink-0 rounded-xl bg-cyan-100 px-2.5 py-1 text-xs font-black text-cyan-700"><span x-text="healthParticipants.length"></span> peserta</span>
+            </header>
+            <p x-show="secondaryHealthParticipants.length === 0" x-cloak class="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-cyan-200 bg-white/70 px-3 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
             <ol x-show="secondaryHealthParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryHealthParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-cyan-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
-                        <p class="font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
+                        <p class="text-xs font-bold text-slate-500">Urutan Registrasi: <span class="font-black text-slate-700" x-text="participant.registration_order"></span></p>
+                        <p class="mt-2 font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
                         <div class="mt-3 grid gap-2">
                             <p x-show="participant.eligibility.result" class="rounded-xl px-3 py-2 text-xs font-black" :class="participant.eligibility.result === 'eligible' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'" x-text="participant.eligibility.result === 'eligible' ? 'LAYAK DONOR' : 'TIDAK LAYAK DONOR'"></p>
-                            <form x-show="participant.can_donate" :action="participant.urls.donate" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-rose-600 text-white hover:bg-rose-700">LANJUT KE DONOR</button></form>
-                            <form x-show="participant.can_complete_before_donation" :action="participant.urls.complete_before_donation" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button></form>
+                            <form x-show="participant.can_donate" :action="participant.urls.donate" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-rose-600 text-white shadow-sm transition hover:bg-rose-700 hover:shadow-md">LANJUT KE DONOR</button></form>
+                            <form x-show="participant.can_complete_before_donation" :action="participant.urls.complete_before_donation" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md">SELESAI</button></form>
                         </div>
                     </li>
                 </template>
             </ol>
         </section>
 
-        <section class="p-4" aria-label="Peserta sedang donor">
-            <p class="mb-3 text-sm font-black text-rose-700">SEDANG DONOR</p>
-            <p x-show="secondaryDonatingParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+        <section class="min-w-0 rounded-2xl border border-rose-200 bg-rose-50/45 p-4 shadow-sm" aria-label="Peserta sedang donor">
+            <header class="mb-3 flex items-center justify-between gap-3 border-b border-rose-100 pb-3">
+                <p class="text-sm font-black text-rose-700">SEDANG DONOR</p>
+                <span class="shrink-0 rounded-xl bg-rose-100 px-2.5 py-1 text-xs font-black text-rose-700"><span x-text="donatingParticipants.length"></span> peserta</span>
+            </header>
+            <p x-show="secondaryDonatingParticipants.length === 0" x-cloak class="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-rose-200 bg-white/70 px-3 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
             <ol x-show="secondaryDonatingParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryDonatingParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-rose-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
-                        <p class="font-mono text-base font-black text-rose-700" x-text="participant.number"></p>
+                        <p class="text-xs font-bold text-slate-500">Urutan Registrasi: <span class="font-black text-slate-700" x-text="participant.registration_order"></span></p>
+                        <p class="mt-2 font-mono text-base font-black text-rose-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
-                        <form :action="participant.urls.complete" method="POST" class="mt-3" data-realtime-submit data-operation-kind="operational"><input type="hidden" name="_token" value="{{ csrf_token() }}"><button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button></form>
+                        <form :action="participant.urls.complete" method="POST" class="mt-3" data-realtime-submit data-operation-kind="operational"><input type="hidden" name="_token" value="{{ csrf_token() }}"><button type="submit" class="btn min-h-11 w-full rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md">SELESAI</button></form>
                     </li>
                 </template>
             </ol>
@@ -278,7 +292,7 @@
                     <h2 id="goto-title" class="mt-1 text-xl font-black text-slate-900">Goto Nomor</h2>
                     <p class="mt-1 text-sm text-slate-500">Panggil kembali nomor yang masih aktif pada antrean global.</p>
                 </div>
-                <button type="button" class="btn btn-ghost btn-sm btn-square" @click="closeGoto()" aria-label="Tutup Goto Nomor">×</button>
+                <button type="button" class="btn btn-ghost btn-sm btn-square rounded-xl" @click="closeGoto()" aria-label="Tutup Goto Nomor">×</button>
             </div>
 
             <form class="mt-6 space-y-4" method="POST" data-realtime-submit @submit="if (!prepareGoto($event)) $event.preventDefault()">
@@ -300,8 +314,8 @@
                     </template>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <button type="button" class="btn min-h-12" @click="closeGoto()">BATAL</button>
-                    <button type="submit" class="btn min-h-12 border-0 bg-emerald-600 text-white hover:bg-emerald-700" :disabled="!selectedGotoTicket()">PANGGIL</button>
+                    <button type="button" class="btn min-h-12 rounded-xl" @click="closeGoto()">BATAL</button>
+                    <button type="submit" class="btn min-h-12 rounded-xl border-0 bg-emerald-600 text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md" :disabled="!selectedGotoTicket()">PANGGIL</button>
                 </div>
             </form>
         </div>

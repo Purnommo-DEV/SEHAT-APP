@@ -115,13 +115,36 @@ class MonitorHotfixTest extends TestCase
             ->assertSee('Perempuan')
             ->assertSee('aria-label="Reload Halaman"', false)
             ->getContent();
-        $positionsMarkup = substr($markup, (int) strpos($markup, 'Peserta di setiap posisi'));
+        $processOffset = (int) strpos($markup, 'Peserta di setiap posisi');
+        $summaryMarkup = substr(
+            $markup,
+            (int) strpos($markup, 'Ringkasan status operasional'),
+            $processOffset - (int) strpos($markup, 'Ringkasan status operasional'),
+        );
+        $positionsMarkup = substr($markup, $processOffset);
 
         $this->assertSame(3, substr_count($positionsMarkup, 'Belum ada peserta'));
         $this->assertStringNotContainsString('hasSecondaryActiveParticipant', $positionsMarkup);
+        $this->assertStringNotContainsString('x-text="healthParticipants.length"', $summaryMarkup);
+        $this->assertStringNotContainsString('x-text="eligibilityParticipants.length"', $summaryMarkup);
+        $this->assertStringContainsString('x-text="eligibilityParticipants.length"', $positionsMarkup);
+        $this->assertStringContainsString('x-text="healthParticipants.length"', $positionsMarkup);
+        $this->assertStringContainsString('x-text="donatingParticipants.length"', $positionsMarkup);
+        $this->assertSame(3, substr_count($positionsMarkup, 'Urutan Registrasi:'));
+        $this->assertSame(3, substr_count($positionsMarkup, 'x-text="participant.registration_order"'));
+        $this->assertSame(3, substr_count($positionsMarkup, 'x-text="participant.number"'));
+        $this->assertStringNotContainsString('#<span x-text="participant.number"></span>', $positionsMarkup);
         $this->assertStringContainsString('aria-label="Peserta cek kelayakan donor"', $positionsMarkup);
         $this->assertStringContainsString('aria-label="Peserta cek kesehatan"', $positionsMarkup);
         $this->assertStringContainsString('aria-label="Peserta sedang donor"', $positionsMarkup);
+        $this->assertStringContainsString('rounded-2xl border border-violet-200', $positionsMarkup);
+        $this->assertStringContainsString('rounded-2xl border border-cyan-200', $positionsMarkup);
+        $this->assertStringContainsString('rounded-2xl border border-rose-200', $positionsMarkup);
+        $this->assertStringContainsString('sm:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.6fr)]', $markup);
+        $this->assertStringContainsString('grid grid-cols-2 gap-2 border-t border-rose-100', $summaryMarkup);
+        $this->assertSame(2, substr_count($summaryMarkup, 'rounded-xl border border-rose-100 bg-white/70 p-2.5'));
+        $this->assertSame(2, substr_count($summaryMarkup, 'font-mono text-sm font-black tabular-nums text-slate-800'));
+        $this->assertSame(2, substr_count($summaryMarkup, 'text-[0.68rem] tracking-wide text-rose-700">PENUH'));
     }
 
     private function assertMonitorCurrent(

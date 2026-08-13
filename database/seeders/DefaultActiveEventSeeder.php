@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\DB;
 
 class DefaultActiveEventSeeder extends Seeder
 {
-    public const EVENT_CODE = 'DONOR-DEMO';
+    public const EVENT_CODE = 'DONOR.APP';
 
-    public const EVENT_NAME = 'Donor Darah — Event Demo';
+    public const EVENT_NAME = 'Donor Darah - Masjid Ummuh Cendrawasih';
 
     public function run(): void
     {
@@ -36,8 +36,8 @@ class DefaultActiveEventSeeder extends Seeder
                 $event = new Event([
                     'code' => self::EVENT_CODE,
                     'name' => self::EVENT_NAME,
-                    'description' => 'Event demo aktif untuk pengujian alur registrasi dan operasional donor darah.',
-                    'location' => 'Lokasi Demo',
+                    'description' => 'Event aktif untuk pengujian alur registrasi dan operasional donor darah.',
+                    'location' => 'Jl. Cendrawasih 1 no. 275',
                     'starts_at' => now(),
                     'status' => EventStatus::Draft,
                 ]);
