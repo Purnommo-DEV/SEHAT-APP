@@ -64,7 +64,7 @@
 
             <section>
                 <h2 class="text-base font-extrabold text-slate-900">Nomor registrasi</h2>
-                <p class="mt-1 text-sm text-slate-500">Urutan registrasi dipisahkan per gender dan event: L001, L002 serta P001, P002.</p>
+                <p class="mt-1 text-sm text-slate-500">Urutan registrasi dipisahkan per gender dan event: L-001, L-002 serta P-001, P-002.</p>
                 <input type="hidden" name="registration_number_format" value="{{ \App\Enums\RegistrationNumberFormat::GenderPrefix->value }}">
 
                 <div class="mt-4 grid gap-5 sm:grid-cols-2">
@@ -136,13 +136,13 @@
                     <label class="form-control">
                         <span class="label-text mb-2 font-semibold text-slate-700">Jumlah bed laki-laki</span>
                         <input type="number" min="1" max="50" name="donation_capacity_male" x-model.number="maleCapacity" required class="input input-bordered w-full rounded-xl border-slate-300 bg-white">
-                        <span class="label-text-alt mt-2 text-slate-500">Contoh: L001, L002 memakai kapasitas ini.</span>
+                        <span class="label-text-alt mt-2 text-slate-500">Contoh: L-001, L-002 memakai kapasitas ini.</span>
                         @error('donation_capacity_male')<span class="label-text-alt mt-2 text-rose-600">{{ $message }}</span>@enderror
                     </label>
                     <label class="form-control">
                         <span class="label-text mb-2 font-semibold text-slate-700">Jumlah bed perempuan</span>
                         <input type="number" min="1" max="50" name="donation_capacity_female" x-model.number="femaleCapacity" required class="input input-bordered w-full rounded-xl border-slate-300 bg-white">
-                        <span class="label-text-alt mt-2 text-slate-500">Contoh: P001, P002 memakai kapasitas ini.</span>
+                        <span class="label-text-alt mt-2 text-slate-500">Contoh: P-001, P-002 memakai kapasitas ini.</span>
                         @error('donation_capacity_female')<span class="label-text-alt mt-2 text-rose-600">{{ $message }}</span>@enderror
                     </label>
                 </div>

@@ -35,7 +35,7 @@ For shared hosting: set `REALTIME_DRIVER=polling` and `REALTIME_POLLING_INTERVAL
 - [ ] Register a participant and process Menunggu → Cek Kesehatan → Sedang Donor → Selesai.
 - [ ] Confirm audit rows, status history, Dashboard, TV Monitor, and each separate area screen update.
 - [ ] Verify Next, Skip, and Goto work only from Screen Petugas Area Tunggu for each gender lane, including an invalid Goto message.
-- [ ] Test separate male/female donor mode (`L001` and `P001`) and global mode (`D001`).
+- [ ] Test separate male/female donor mode (`L-001` and `P-001`) and global mode (`D-001`).
 - [ ] Set male capacity to 4 and female capacity to 4; verify 4/4 male does not block female donor, 4/4 female does not block male donor, and only the full gender remains in Cek Kesehatan.
 - [ ] Verify only the administrator or a user granted `event.update_donation_capacity` can change active-event capacity; lowering below active donors must be rejected and must leave an audit row.
 - [ ] Validate `/ready`, worker, Reverb or polling, backups, and error monitoring.

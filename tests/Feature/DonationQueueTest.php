@@ -77,7 +77,7 @@ class DonationQueueTest extends TestCase
             ->orderBy('id')
             ->get();
 
-        $this->assertSame(['L001', 'L002', 'P001'], $tickets->map->formattedNumber()->all());
+        $this->assertSame(['L-001', 'L-002', 'P-001'], $tickets->map->formattedNumber()->all());
         $this->assertSame([1, 2, 1], $tickets->pluck('number')->all());
         $this->assertDatabaseHas('audit_logs', [
             'subject_type' => QueueTicket::class,
@@ -123,7 +123,7 @@ class DonationQueueTest extends TestCase
 
         $this->assertCount(2, $tickets);
         $this->assertSame([1, 1], $tickets->pluck('number')->all());
-        $this->assertSame(['L001', 'P001'], $tickets->map->formattedNumber()->all());
+        $this->assertSame(['L-001', 'P-001'], $tickets->map->formattedNumber()->all());
     }
 
     public function test_donor_ticket_can_be_called_skipped_and_recalled(): void
@@ -226,7 +226,7 @@ class DonationQueueTest extends TestCase
             ->getJson(route('events.donation.data', $event))
             ->assertOk()
             ->assertJsonPath('data.0.id', $ticket->id)
-            ->assertJsonPath('data.0.formatted_number', 'L001');
+            ->assertJsonPath('data.0.formatted_number', 'L-001');
 
         $this->actingAs($administrator)
             ->post(route('events.donation.call', [$otherEvent, $ticket]))

@@ -65,7 +65,7 @@ class OperationalCallingWorkflowTest extends TestCase
         $this->assertSame(ParticipantStatus::HealthCheck, $healthCheck->status);
         $operations->startDonation($event, $donorOnly->eventParticipant, $actor);
         $donorTicket = $donorOnly->eventParticipant->queueTickets()->latest('id')->firstOrFail();
-        $this->assertSame('L001', $donorTicket->formattedNumber());
+        $this->assertSame('L-001', $donorTicket->formattedNumber());
         $this->assertSame($donorOnly->eventParticipant->registration_number, $donorTicket->number);
         $operations->complete($event, $donorOnly->eventParticipant, $actor);
         $this->assertSame(ParticipantStatus::Finished, $donorOnly->eventParticipant->fresh()->status);
@@ -123,7 +123,7 @@ class OperationalCallingWorkflowTest extends TestCase
         $this->assertSame(ParticipantStatus::HealthCheck, $both->eventParticipant->fresh()->status);
         $operations->startDonation($event, $both->eventParticipant, $actor);
         $bothDonorTicket = $both->eventParticipant->queueTickets()->latest('id')->firstOrFail();
-        $this->assertSame('L001', $bothDonorTicket->formattedNumber());
+        $this->assertSame('L-001', $bothDonorTicket->formattedNumber());
         $this->assertSame($both->eventParticipant->registration_number, $bothDonorTicket->number);
         $operations->complete($event, $both->eventParticipant, $actor);
         $this->assertSame(ParticipantStatus::Finished, $both->eventParticipant->fresh()->status);
@@ -223,14 +223,16 @@ class OperationalCallingWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'queue.tickets')
             ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
-            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::WaitingScreening->value);
+            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::WaitingScreening->value)
+            ->assertJsonMissing(['status' => ParticipantStatus::Calling->value]);
 
         $operations->markEligible($event, $registration->eventParticipant, $actor);
         $operations->startDonation($event, $registration->eventParticipant, $actor);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
             ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
-            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::Donating->value);
+            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::Donating->value)
+            ->assertJsonMissing(['status' => ParticipantStatus::Calling->value]);
     }
 
     public function test_next_can_call_another_participant_when_the_previous_one_is_already_donating(): void

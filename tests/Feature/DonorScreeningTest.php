@@ -62,7 +62,7 @@ class DonorScreeningTest extends TestCase
                 'reason' => 'Alasan ini tidak disimpan untuk hasil layak.',
             ])
             ->assertOk()
-            ->assertJsonPath('message', 'Layak donor. Nomor antrean L001 diterbitkan.');
+            ->assertJsonPath('message', 'Layak donor. Nomor antrean L-001 diterbitkan.');
 
         $screening = DonorScreening::query()->firstOrFail();
         $eventParticipant->refresh();

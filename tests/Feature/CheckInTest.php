@@ -213,12 +213,12 @@ class CheckInTest extends TestCase
         $this->assertSame(ParticipantStatus::Waiting, $eventParticipant->status);
         $this->assertSame(1, $eventParticipant->services()->count());
         $this->assertSame(1, $eventParticipant->registration_number);
-        $this->assertSame('L001', $eventParticipant->formattedRegistrationNumber($event->settings));
+        $this->assertSame('L-001', $eventParticipant->formattedRegistrationNumber($event->settings));
         $this->assertSame($healthPost->id, $eventParticipant->current_service_post_id);
         $this->assertSame(QueueType::General, $queueTicket->queue_type);
         $this->assertSame(QueueTicketStatus::Waiting, $queueTicket->status);
         $this->assertSame(1, $queueTicket->number);
-        $this->assertSame('L001', $queueTicket->formattedNumber());
+        $this->assertSame('L-001', $queueTicket->formattedNumber());
         $this->assertDatabaseHas('audit_logs', [
             'event_id' => $event->id,
             'subject_type' => EventParticipant::class,
@@ -228,8 +228,8 @@ class CheckInTest extends TestCase
         EventFacade::assertDispatched(
             ParticipantCheckedIn::class,
             fn (ParticipantCheckedIn $broadcast): bool => $broadcast->eventParticipantId === $eventParticipant->id
-                && $broadcast->queueNumber === 'L001'
-                && $broadcast->registrationNumber === 'L001'
+                && $broadcast->queueNumber === 'L-001'
+                && $broadcast->registrationNumber === 'L-001'
                 && $broadcast->services === [ParticipantServiceType::HealthCheck->value]
         );
     }
@@ -261,7 +261,7 @@ class CheckInTest extends TestCase
                 'services' => [ParticipantServiceType::HealthCheck->value],
             ])
             ->assertRedirect()
-            ->assertSessionHas('status', 'Peserta sudah check-in dengan nomor registrasi L001.');
+            ->assertSessionHas('status', 'Peserta sudah check-in dengan nomor registrasi L-001.');
 
         $this->assertDatabaseCount('event_participants', 2);
         $this->assertDatabaseCount('queue_tickets', 2);
@@ -295,8 +295,8 @@ class CheckInTest extends TestCase
         $this->actingAs($administrator)
             ->getJson(route('events.check-ins.data', $event))
             ->assertOk()
-            ->assertJsonPath('data.0.formatted_number', 'L001')
-            ->assertJsonPath('data.0.registration_number', 'L001')
+            ->assertJsonPath('data.0.formatted_number', 'L-001')
+            ->assertJsonPath('data.0.registration_number', 'L-001')
             ->assertJsonPath('data.0.participant.id', $participant->id)
             ->assertJsonPath('data.0.participant.gender', $participant->gender->value)
             ->assertJsonPath('data.0.participant.gender_label', $participant->gender->label())
@@ -405,7 +405,7 @@ class CheckInTest extends TestCase
             'services' => [ParticipantServiceType::HealthCheck->value],
         ])
             ->assertOk()
-            ->assertJsonPath('data.registration_number', 'L020');
+            ->assertJsonPath('data.registration_number', 'L-020');
 
         $this->postJson(route('events.check-ins.store', $event), [
             'participant_id' => $participant->id,
@@ -478,7 +478,7 @@ class CheckInTest extends TestCase
             'services' => [ParticipantServiceType::HealthCheck->value],
         ])
             ->assertOk()
-            ->assertJsonPath('data.registration_number', 'P001');
+            ->assertJsonPath('data.registration_number', 'P-001');
 
         $this->assertDatabaseHas('event_participants', [
             'id' => $eventParticipant->id,

@@ -201,8 +201,11 @@ class EventParticipant extends Model
             ? $participant->gender
             : ParticipantGender::Male;
 
-        return $settings->registrationPrefix($gender)
-            .str_pad((string) $this->registration_number, $settings->registration_queue_digits, '0', STR_PAD_LEFT);
+        return EventSetting::formatQueueNumber(
+            $settings->registrationPrefix($gender),
+            $this->registration_number,
+            $settings->registration_queue_digits,
+        );
     }
 
     public static function registrationNumberScopeFor(ParticipantGender $gender): string

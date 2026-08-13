@@ -109,7 +109,7 @@ class QueueTicket extends Model
 
     /**
      * Donor lifecycle tickets reuse the participant registration number.
-     * Their internal lane remains gender-scoped so L001 and P001 may coexist
+     * Their internal lane remains gender-scoped so L-001 and P-001 may coexist
      * without relying on a second donor-number sequence.
      */
     public static function donorQueueTypeFor(ParticipantGender $gender): QueueType
@@ -155,8 +155,11 @@ class QueueTicket extends Model
                     : $this->event()->with('settings')->firstOrFail();
                 $settings = $this->settingsFor($event);
 
-                return $settings->donorPrefix($this->queue_type)
-                    .str_pad((string) $this->number, $settings->donor_queue_digits, '0', STR_PAD_LEFT);
+                return EventSetting::formatQueueNumber(
+                    $settings->donorPrefix($this->queue_type),
+                    $this->number,
+                    $settings->donor_queue_digits,
+                );
             }
 
             // Posts created by the workflow builder use their own prefix and
@@ -173,8 +176,11 @@ class QueueTicket extends Model
                 return str_pad((string) $this->number, $settings->general_queue_digits, '0', STR_PAD_LEFT);
             }
 
-            return ($servicePost->queue_prefix ?? '')
-                .str_pad((string) $this->number, $servicePost->queue_number_digits, '0', STR_PAD_LEFT);
+            return EventSetting::formatQueueNumber(
+                $servicePost->queue_prefix,
+                $this->number,
+                $servicePost->queue_number_digits,
+            );
         }
 
         $event = $this->relationLoaded('event')
@@ -192,7 +198,7 @@ class QueueTicket extends Model
             ? $settings->general_queue_digits
             : $settings->donor_queue_digits;
 
-        return $prefix.str_pad((string) $this->number, $digits, '0', STR_PAD_LEFT);
+        return EventSetting::formatQueueNumber($prefix, $this->number, $digits);
     }
 
     private function settingsFor(Event $event): EventSetting

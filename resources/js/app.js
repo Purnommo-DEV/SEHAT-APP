@@ -1051,11 +1051,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
     },
 
     get primaryParticipant() {
-        return this.activePositions.find((participant) => participant.status === 'calling')
-            ?? this.activePositions.find((participant) => participant.status === 'health_check')
-            ?? this.activePositions.find((participant) => participant.status === 'waiting_screening')
-            ?? this.activePositions.find((participant) => participant.status === 'donating')
-            ?? null;
+        return this.activePositions.find((participant) => participant.status === 'calling') ?? null;
     },
 
     withoutPrimaryParticipant(participants) {

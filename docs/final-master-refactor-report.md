@@ -66,8 +66,8 @@ UAT dilakukan melalui UI terhadap event aktif:
 1. Menambahkan Pos Pemeriksaan Kelayakan Donor dan Pos Donor Darah melalui repair UI.
 2. Halaman registrasi yang tetap terbuka menerima `service-post.updated`; pilihan Donor berubah dari disabled menjadi enabled tanpa navigasi/reload.
 3. Echo terverifikasi berstatus `connected`; Reverb mencatat subscription dan broadcast pada `private-events.1`.
-4. Peserta UAT memilih Donor + Pemeriksaan Kesehatan dan memperoleh nomor registrasi `R002`.
-5. Keputusan layak menerbitkan nomor donor `D001`.
+4. Peserta UAT memilih Donor + Pemeriksaan Kesehatan dan memperoleh nomor registrasi `R-002`.
+5. Keputusan layak menerbitkan nomor donor `D-001`.
 6. Alur panggil, mulai donor, donor selesai, pindah ke kesehatan, panggil, periksa, dan selesai berhasil.
 7. Status akhir peserta `health_check_completed`; layanan donor dan kesehatan keduanya `completed` dengan timestamp lengkap.
 8. Dashboard menampilkan metrik hadir, pilihan layanan, layak donor, donor selesai, dan pemeriksaan selesai secara konsisten.

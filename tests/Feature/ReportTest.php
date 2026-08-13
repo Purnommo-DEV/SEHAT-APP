@@ -47,7 +47,7 @@ class ReportTest extends TestCase
             ->assertOk()
             ->assertSee('Laporan Event')
             ->assertSee('Ahmad Laporan')
-            ->assertSee('L001');
+            ->assertSee('L-001');
 
         $this->actingAs($administrator)
             ->getJson(route('reports.data', ['event_id' => $event->id]))
@@ -58,7 +58,7 @@ class ReportTest extends TestCase
             ->assertJsonPath('records.0.id', $eventParticipant->id)
             ->assertJsonPath('records.0.name', 'Ahmad Laporan')
             ->assertJsonPath('records.0.general_queue_number', '001')
-            ->assertJsonPath('records.0.donor_queue_number', 'L001')
+            ->assertJsonPath('records.0.donor_queue_number', 'L-001')
             ->assertJsonPath('records.0.screening_result', 'Layak Donor');
     }
 
@@ -142,7 +142,7 @@ class ReportTest extends TestCase
 
         $this->assertSame(1, $snapshot->metrics['finished']);
         $this->assertSame(['Verifikasi Dokumen', 'Konsultasi Gizi', 'Konfirmasi Pulang'], array_column($record['service_history'], 'post_name'));
-        $this->assertSame(['V001', 'G001', 'K001'], array_column($record['service_history'], 'queue_number'));
+        $this->assertSame(['V-001', 'G-001', 'K-001'], array_column($record['service_history'], 'queue_number'));
         $this->assertNull($record['donor_queue_number']);
     }
 

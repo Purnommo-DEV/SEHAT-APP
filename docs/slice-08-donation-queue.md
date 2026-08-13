@@ -5,7 +5,7 @@
 ## Fitur selesai
 
 - Penerbitan nomor donor otomatis di dalam transaksi keputusan `Layak Donor`.
-- Counter independen per event dan gender: `L001, L002, ...` serta `P001, P002, ...`.
+- Counter independen per event dan gender: `L-001, L-002, ...` serta `P-001, P-002, ...`.
 - Prefix donor mengambil pengaturan event, bukan hardcode tampilan.
 - Meja donor dua kolom untuk laki-laki dan perempuan.
 - Lifecycle panggil, lewati, panggil ulang, mulai donor, dan donor selesai.

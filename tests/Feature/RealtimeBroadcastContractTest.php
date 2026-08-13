@@ -133,15 +133,15 @@ class RealtimeBroadcastContractTest extends TestCase
         ];
 
         yield 'participant check-in' => [
-            new ParticipantCheckedIn(41, 52, 53, 'K001', 'R001', ['donor', 'health_check']),
+            new ParticipantCheckedIn(41, 52, 53, 'K-001', 'R-001', ['donor', 'health_check']),
             'events.41',
             'participant.checked-in',
             [
                 'event_id' => 41,
                 'event_participant_id' => 52,
                 'queue_ticket_id' => 53,
-                'queue_number' => 'K001',
-                'registration_number' => 'R001',
+                'queue_number' => 'K-001',
+                'registration_number' => 'R-001',
                 'services' => ['donor', 'health_check'],
             ],
         ];

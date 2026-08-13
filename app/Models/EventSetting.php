@@ -77,6 +77,16 @@ class EventSetting extends Model
         };
     }
 
+    public static function formatQueueNumber(?string $prefix, int $number, int $digits): string
+    {
+        $formattedNumber = str_pad((string) $number, $digits, '0', STR_PAD_LEFT);
+        $normalizedPrefix = rtrim(trim((string) $prefix), '-');
+
+        return $normalizedPrefix === ''
+            ? $formattedNumber
+            : "{$normalizedPrefix}-{$formattedNumber}";
+    }
+
     public function donorQueueType(ParticipantGender $gender): QueueType
     {
         if ($this->donor_number_mode === DonorNumberMode::Global) {

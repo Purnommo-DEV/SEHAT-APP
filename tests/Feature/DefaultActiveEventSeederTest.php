@@ -97,12 +97,12 @@ class DefaultActiveEventSeederTest extends TestCase
             'participant_id' => $participant->id,
             'services' => [ParticipantServiceType::Donor->value],
         ])->assertCreated()
-            ->assertJsonPath('data.registration_number', 'L001');
+            ->assertJsonPath('data.registration_number', 'L-001');
         $this->postJson(route('events.check-ins.store', $event), [
             'participant_id' => $femaleParticipant->id,
             'services' => [ParticipantServiceType::HealthCheck->value],
         ])->assertCreated()
-            ->assertJsonPath('data.registration_number', 'P001');
+            ->assertJsonPath('data.registration_number', 'P-001');
 
         $eventParticipant = EventParticipant::query()
             ->where('event_id', $event->id)
@@ -134,19 +134,19 @@ class DefaultActiveEventSeederTest extends TestCase
             'participant_id' => $eligibleParticipant->id,
             'services' => [ParticipantServiceType::Donor->value],
         ])->assertCreated()
-            ->assertJsonPath('data.registration_number', 'L001')
+            ->assertJsonPath('data.registration_number', 'L-001')
             ->assertJsonPath('data.registration_order', 1);
         $this->postJson(route('events.check-ins.store', $event), [
             'participant_id' => $ineligibleParticipant->id,
             'services' => [ParticipantServiceType::Donor->value],
         ])->assertCreated()
-            ->assertJsonPath('data.registration_number', 'L002')
+            ->assertJsonPath('data.registration_number', 'L-002')
             ->assertJsonPath('data.registration_order', 2);
         $this->postJson(route('events.check-ins.store', $event), [
             'participant_id' => $healthOnlyParticipant->id,
             'services' => [ParticipantServiceType::HealthCheck->value],
         ])->assertCreated()
-            ->assertJsonPath('data.registration_number', 'P001')
+            ->assertJsonPath('data.registration_number', 'P-001')
             ->assertJsonPath('data.registration_order', 3);
 
         $eligible = EventParticipant::query()->where('participant_id', $eligibleParticipant->id)->firstOrFail();

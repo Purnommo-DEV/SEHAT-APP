@@ -59,7 +59,7 @@ class OperationalWorkflowTest extends TestCase
         $service = app(OperationalWorkflowService::class);
 
         $this->assertSame(ParticipantStatus::Waiting, $registration->eventParticipant->status);
-        $this->assertSame('L001', $registration->registrationNumber);
+        $this->assertSame('L-001', $registration->registrationNumber);
 
         $eligibility = $service->startEligibility($event, $registration->eventParticipant, $actor);
         $this->assertSame(ParticipantStatus::WaitingScreening, $eligibility->status);
@@ -120,7 +120,7 @@ class OperationalWorkflowTest extends TestCase
             $numbers[] = $ticket->formattedNumber();
         }
 
-        $this->assertSame(['L001', 'L002', 'P001', 'P002'], $numbers);
+        $this->assertSame(['L-001', 'L-002', 'P-001', 'P-002'], $numbers);
     }
 
     public function test_donor_ticket_reuses_registration_number_when_the_legacy_mode_is_global(): void
@@ -146,7 +146,7 @@ class OperationalWorkflowTest extends TestCase
                 ->formattedNumber();
         }
 
-        $this->assertSame(['L001', 'P001', 'L002'], $numbers);
+        $this->assertSame(['L-001', 'P-001', 'L-002'], $numbers);
     }
 
     public function test_event_donation_capacity_is_independent_per_gender_and_releases_its_own_slot_after_completion(): void
@@ -284,7 +284,7 @@ class OperationalWorkflowTest extends TestCase
         $this->assertTrue($capacity['male']['is_full']);
         $this->assertSame(1, $capacity['female']['active']);
         $this->assertSame(3, $capacity['female']['available']);
-        $this->assertSame('P001', $female->eventParticipant->queueTickets()
+        $this->assertSame('P-001', $female->eventParticipant->queueTickets()
             ->where('queue_type', QueueType::FemaleDonor->value)
             ->firstOrFail()
             ->formattedNumber());
@@ -478,8 +478,8 @@ class OperationalWorkflowTest extends TestCase
             ->assertSee('LAYAK DONOR')
             ->assertSee('TIDAK LAYAK DONOR');
         $this->assertLessThan(
-            strpos($response->getContent(), 'L002'),
-            strpos($response->getContent(), 'L001'),
+            strpos($response->getContent(), 'L-002'),
+            strpos($response->getContent(), 'L-001'),
         );
 
         app(OperationalWorkflowService::class)->startEligibility($event, $second->eventParticipant, $actor);

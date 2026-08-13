@@ -43,10 +43,10 @@ Nomor donor **selalu sama dengan nomor registrasi**. `QueueNumberGenerator` hany
 
 | Registrasi | Nomor pada Cek Kesehatan / Donor / TV / Dashboard |
 | --- | --- |
-| `L021` | `L021` |
-| `P021` | `P021` |
+| `L-021` | `L-021` |
+| `P-021` | `P-021` |
 
-Tiket donor memakai lane internal gender (`male_donor` atau `female_donor`) hanya untuk keamanan indeks database dan kapasitas. Lane tersebut tidak membuat urutan `D001` baru. Field mode/prefix donor lama tetap disimpan untuk membaca data historis dan kompatibilitas API, namun tidak menentukan nomor proses operasional baru.
+Tiket donor memakai lane internal gender (`male_donor` atau `female_donor`) hanya untuk keamanan indeks database dan kapasitas. Lane tersebut tidak membuat urutan `D-001` baru. Field mode/prefix donor lama tetap disimpan untuk membaca data historis dan kompatibilitas API, namun tidak menentukan nomor proses operasional baru.
 
 ## Kapasitas donor paralel
 
