@@ -187,23 +187,6 @@
     <p x-show="!hasSecondaryActiveParticipant" class="px-5 py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta lain dalam proses pelayanan.</p>
 
     <div x-show="hasSecondaryActiveParticipant" class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-        <section x-show="secondaryHealthParticipants.length > 0" class="p-4" aria-label="Peserta cek kesehatan">
-            <p class="mb-3 text-sm font-black text-cyan-700">CEK KESEHATAN</p>
-            <ol class="space-y-2">
-                <template x-for="participant in secondaryHealthParticipants" :key="participant.id">
-                    <li class="rounded-2xl border border-cyan-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
-                        <p class="font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
-                        <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
-                        <div class="mt-3 grid gap-2">
-                            <p x-show="participant.eligibility.result" class="rounded-xl px-3 py-2 text-xs font-black" :class="participant.eligibility.result === 'eligible' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'" x-text="participant.eligibility.result === 'eligible' ? 'LAYAK DONOR' : 'TIDAK LAYAK DONOR'"></p>
-                            <form x-show="participant.can_donate" :action="participant.urls.donate" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-rose-600 text-white hover:bg-rose-700">DONOR</button></form>
-                            <form x-show="participant.can_complete_before_donation" :action="participant.urls.complete_before_donation" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button></form>
-                        </div>
-                    </li>
-                </template>
-            </ol>
-        </section>
-
         <section x-show="secondaryEligibilityParticipants.length > 0" class="p-4" aria-label="Peserta cek kelayakan donor">
             <p class="mb-3 text-sm font-black text-violet-700">Cek Kelayakan Donor</p>
             <ol class="space-y-2">
@@ -216,6 +199,23 @@
                             <form x-show="participant.can_decide_eligibility" :action="participant.urls.eligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">LAYAK DONOR</button></form>
                             <form x-show="participant.can_decide_eligibility" :action="participant.urls.ineligible" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-slate-700 text-white hover:bg-slate-800">TIDAK LAYAK DONOR</button></form>
                             <form x-show="participant.can_continue_to_health_check" :action="participant.urls.health_check" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-cyan-600 text-white hover:bg-cyan-700">LANJUT KE CEK KESEHATAN</button></form>
+                        </div>
+                    </li>
+                </template>
+            </ol>
+        </section>
+
+        <section x-show="secondaryHealthParticipants.length > 0" class="p-4" aria-label="Peserta cek kesehatan">
+            <p class="mb-3 text-sm font-black text-cyan-700">CEK KESEHATAN</p>
+            <ol class="space-y-2">
+                <template x-for="participant in secondaryHealthParticipants" :key="participant.id">
+                    <li class="rounded-2xl border border-cyan-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
+                        <p class="font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
+                        <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
+                        <div class="mt-3 grid gap-2">
+                            <p x-show="participant.eligibility.result" class="rounded-xl px-3 py-2 text-xs font-black" :class="participant.eligibility.result === 'eligible' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'" x-text="participant.eligibility.result === 'eligible' ? 'LAYAK DONOR' : 'TIDAK LAYAK DONOR'"></p>
+                            <form x-show="participant.can_donate" :action="participant.urls.donate" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-rose-600 text-white hover:bg-rose-700">DONOR</button></form>
+                            <form x-show="participant.can_complete_before_donation" :action="participant.urls.complete_before_donation" method="POST" data-realtime-submit data-operation-kind="operational">@csrf<button type="submit" class="btn min-h-11 w-full border-0 bg-emerald-600 text-white hover:bg-emerald-700">SELESAI</button></form>
                         </div>
                     </li>
                 </template>

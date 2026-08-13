@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\ParticipantStatus;
+use App\Enums\QueueTicketStatus;
 use App\Models\EventParticipantService;
 use App\Models\QueueTicket;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ class QueueTicketResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $isSkipped = $this->status === QueueTicketStatus::Skipped;
+
         return [
             'id' => $this->id,
             'number' => $this->number,
@@ -25,8 +28,12 @@ class QueueTicketResource extends JsonResource
             'registration_number' => $this->eventParticipant->formattedRegistrationNumber($this->event->settings),
             'registration_order' => $this->eventParticipant->registration_order,
             'is_finished' => $this->eventParticipant->status === ParticipantStatus::Finished,
-            'participant_status' => $this->eventParticipant->status->value,
-            'participant_status_label' => $this->eventParticipant->status->label(),
+            'participant_status' => $isSkipped
+                ? QueueTicketStatus::Skipped->value
+                : $this->eventParticipant->status->value,
+            'participant_status_label' => $isSkipped
+                ? QueueTicketStatus::Skipped->label()
+                : $this->eventParticipant->status->label(),
             'queue_type' => $this->queue_type->value,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),

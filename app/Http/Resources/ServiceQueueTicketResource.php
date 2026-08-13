@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\QueueTicketStatus;
 use App\Models\EventParticipantService;
 use App\Models\QueueTicket;
 use Illuminate\Http\Request;
@@ -31,6 +32,10 @@ class ServiceQueueTicketResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $position = $this->status === QueueTicketStatus::Skipped
+            ? QueueTicketStatus::Skipped
+            : $this->eventParticipant->status;
+
         return [
             'id' => $this->id,
             'number' => $this->formattedNumber(),
@@ -40,8 +45,8 @@ class ServiceQueueTicketResource extends JsonResource
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'position' => [
-                'value' => $this->eventParticipant->status->value,
-                'label' => $this->eventParticipant->status->label(),
+                'value' => $position->value,
+                'label' => $position->label(),
             ],
             'participant' => [
                 'id' => $this->eventParticipant->participant->id,

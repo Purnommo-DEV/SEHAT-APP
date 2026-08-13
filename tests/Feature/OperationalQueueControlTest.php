@@ -57,6 +57,19 @@ class OperationalQueueControlTest extends TestCase
             ->assertSee('Laki-laki')
             ->assertSee('Perempuan');
 
+        $operationsMarkup = (string) $this->get(route('events.operations.waiting.desk', $event))->getContent();
+        $positionsOffset = strpos($operationsMarkup, 'Peserta di setiap posisi');
+        $this->assertNotFalse($positionsOffset);
+        $positionsMarkup = substr($operationsMarkup, $positionsOffset);
+        $this->assertLessThan(
+            strpos($positionsMarkup, 'CEK KESEHATAN'),
+            strpos($positionsMarkup, 'Cek Kelayakan Donor'),
+        );
+        $this->assertLessThan(
+            strpos($positionsMarkup, 'SEDANG DONOR'),
+            strpos($positionsMarkup, 'CEK KESEHATAN'),
+        );
+
         $this->get(route('events.operations.health-check', $event))
             ->assertRedirect(route('events.operations.waiting.desk', $event));
 
@@ -112,6 +125,19 @@ class OperationalQueueControlTest extends TestCase
         $firstMale->refresh();
         $this->assertSame(QueueTicketStatus::Skipped, $firstMale->status);
         $this->assertNotNull($firstMale->skipped_at);
+        $this->assertSame(ParticipantStatus::Waiting, $firstMale->eventParticipant->refresh()->status);
+        $recentTickets = $this->getJson(route('events.check-ins.data', $event))->assertOk()->json('data');
+        $recentSkippedTicket = collect($recentTickets)->firstWhere('id', $firstMale->id);
+        $this->assertIsArray($recentSkippedTicket);
+        $this->assertSame(QueueTicketStatus::Skipped->value, $recentSkippedTicket['participant_status']);
+        $this->assertSame(QueueTicketStatus::Skipped->label(), $recentSkippedTicket['participant_status_label']);
+
+        $waitingSnapshot = $this->getJson(route('events.operations.waiting.snapshot', $event))->assertOk();
+        $operationalSkippedTicket = collect($waitingSnapshot->json('queue.tickets'))->firstWhere('id', $firstMale->id);
+        $this->assertIsArray($operationalSkippedTicket);
+        $this->assertSame(QueueTicketStatus::Skipped->value, $operationalSkippedTicket['status']);
+        $this->assertSame(QueueTicketStatus::Skipped->value, $operationalSkippedTicket['position']['value']);
+        $this->assertSame(QueueTicketStatus::Skipped->label(), $operationalSkippedTicket['position']['label']);
         $this->assertDatabaseHas('audit_logs', [
             'subject_id' => $firstMale->id,
             'subject_type' => QueueTicket::class,

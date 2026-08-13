@@ -245,7 +245,7 @@
                                     <span class="block truncate font-bold text-slate-900" x-text="ticket.participant.name"></span>
                                     <span class="mt-1 block truncate text-xs text-slate-500" x-text="ticket.services.map(service => service.label).join(' + ')"></span>
                                     <span x-show="ticket.is_finished" class="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-[0.7rem] font-black text-slate-700">✓ SELESAI</span>
-                                    <span x-show="! ticket.is_finished" class="mt-2 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[0.7rem] font-black text-sky-700" x-text="ticket.participant_status_label"></span>
+                                    <span x-show="! ticket.is_finished" class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[0.7rem] font-black" :class="ticket.participant_status === 'skipped' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-700'" x-text="ticket.participant_status_label"></span>
                                     <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[0.7rem] font-bold" :class="$store.ui.genderBadgeClass(ticket.participant.gender)">
                                         <span class="mr-1" x-text="$store.ui.genderIcon(ticket.participant.gender)"></span>
                                         <span x-text="ticket.participant.gender_label"></span>
