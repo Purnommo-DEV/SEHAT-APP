@@ -1028,6 +1028,24 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
         return this.snapshot?.finished_count ?? this.finishedParticipants.length;
     },
 
+    get secondaryHealthParticipants() {
+        return this.withoutPrimaryParticipant(this.healthParticipants);
+    },
+
+    get secondaryEligibilityParticipants() {
+        return this.withoutPrimaryParticipant(this.eligibilityParticipants);
+    },
+
+    get secondaryDonatingParticipants() {
+        return this.withoutPrimaryParticipant(this.donatingParticipants);
+    },
+
+    get hasSecondaryActiveParticipant() {
+        return this.secondaryHealthParticipants.length > 0
+            || this.secondaryEligibilityParticipants.length > 0
+            || this.secondaryDonatingParticipants.length > 0;
+    },
+
     get currentParticipants() {
         return this.activePositions.filter((participant) => participant.call?.is_active);
     },
@@ -1038,6 +1056,10 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
             ?? this.activePositions.find((participant) => participant.status === 'waiting_screening')
             ?? this.activePositions.find((participant) => participant.status === 'donating')
             ?? null;
+    },
+
+    withoutPrimaryParticipant(participants) {
+        return participants.filter((participant) => participant.id !== this.primaryParticipant?.id);
     },
 
     get waitingTickets() {

@@ -47,6 +47,13 @@ class OperationalQueueControlTest extends TestCase
             ->assertSee('Cari peserta aktif')
             ->assertSee('type="search"', false)
             ->assertDontSee('name="queue_number"', false)
+            ->assertSee('title="Panggil Peserta Berikutnya"', false)
+            ->assertSee('title="Lewati Peserta Saat Ini"', false)
+            ->assertSee('title="Pilih Peserta"', false)
+            ->assertSee("primaryParticipant ? primaryParticipant.position.label : 'Sedang Dipanggil'", false)
+            ->assertSee('secondaryHealthParticipants', false)
+            ->assertSee('secondaryEligibilityParticipants', false)
+            ->assertSee('secondaryDonatingParticipants', false)
             ->assertSee('Laki-laki')
             ->assertSee('Perempuan');
 

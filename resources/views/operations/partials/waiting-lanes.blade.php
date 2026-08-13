@@ -1,8 +1,8 @@
 <section class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.65fr)]" aria-label="Kendali operasional">
-    <article class="overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm xl:sticky xl:top-4 xl:self-start" aria-label="Peserta sedang dipanggil">
+    <article class="overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm xl:sticky xl:top-4 xl:self-start" aria-label="Kendali peserta" :aria-label="primaryParticipant ? 'Kendali peserta: ' + primaryParticipant.position.label : 'Kendali peserta'">
         <header class="border-b border-sky-100 bg-gradient-to-r from-sky-600 to-indigo-700 px-5 py-4 text-white sm:px-6">
-            <p class="text-xs font-bold uppercase tracking-[0.18em] text-white/75">Sedang Dipanggil</p>
-            <h2 class="mt-1 text-xl font-black">Kendali peserta saat ini</h2>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-white/75" x-text="primaryParticipant ? primaryParticipant.position.label : 'Sedang Dipanggil'">Sedang Dipanggil</p>
+            <h2 class="mt-1 text-xl font-black" x-text="primaryParticipant ? 'Kendali · ' + primaryParticipant.position.label : 'Kendali peserta saat ini'">Kendali peserta saat ini</h2>
         </header>
 
         <template x-if="primaryParticipant">
@@ -70,45 +70,57 @@
             <div class="border-t border-slate-100 bg-slate-50 p-4 sm:p-5">
                 <p class="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Kontrol pemanggilan</p>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    <form
-                        :action="skippableTicketFor()?.urls.skip ?? ''"
-                        method="POST"
-                        data-realtime-submit
-                        @submit="if (!ensureSkip()) $event.preventDefault()"
-                    >
-                        @csrf
-                        <button
-                            type="submit"
-                            class="btn min-h-12 w-full border-0 bg-amber-500 text-slate-950 hover:bg-amber-400"
-                            :disabled="!skippableTicketFor()"
-                            aria-label="Lewati nomor saat ini antrean Global"
-                            data-testid="skip-global"
-                        >SKIP</button>
-                    </form>
+                    <div class="group relative w-full">
+                        <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-max max-w-48 -translate-x-1/2 rounded-lg bg-slate-950 px-3 py-2 text-center text-xs font-bold text-white shadow-lg sm:group-focus-within:block sm:group-hover:block">Lewati Peserta Saat Ini</span>
+                        <form
+                            :action="skippableTicketFor()?.urls.skip ?? ''"
+                            method="POST"
+                            data-realtime-submit
+                            @submit="if (!ensureSkip()) $event.preventDefault()"
+                        >
+                            @csrf
+                            <button
+                                type="submit"
+                                class="btn min-h-12 w-full cursor-pointer border-0 bg-amber-500 text-slate-950 transition duration-150 hover:-translate-y-0.5 hover:bg-amber-400 hover:shadow-lg disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                                :disabled="!skippableTicketFor()"
+                                title="Lewati Peserta Saat Ini"
+                                aria-label="Lewati nomor saat ini antrean Global"
+                                data-testid="skip-global"
+                            >SKIP</button>
+                        </form>
+                    </div>
 
-                    <form
-                        :action="nextTicketFor()?.urls.call ?? ''"
-                        method="POST"
-                        data-realtime-submit
-                        @submit="if (!ensureNext()) $event.preventDefault()"
-                    >
-                        @csrf
-                        <button
-                            type="submit"
-                            class="btn min-h-12 w-full border-0 bg-indigo-600 text-white hover:bg-indigo-700"
-                            :disabled="!nextTicketFor()"
-                            aria-label="Panggil nomor berikutnya antrean Global"
-                            data-testid="next-global"
-                        >NEXT</button>
-                    </form>
+                    <div class="group relative w-full">
+                        <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-max max-w-48 -translate-x-1/2 rounded-lg bg-slate-950 px-3 py-2 text-center text-xs font-bold text-white shadow-lg sm:group-focus-within:block sm:group-hover:block">Panggil Peserta Berikutnya</span>
+                        <form
+                            :action="nextTicketFor()?.urls.call ?? ''"
+                            method="POST"
+                            data-realtime-submit
+                            @submit="if (!ensureNext()) $event.preventDefault()"
+                        >
+                            @csrf
+                            <button
+                                type="submit"
+                                class="btn min-h-12 w-full cursor-pointer border-0 bg-indigo-600 text-white transition duration-150 hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-lg disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                                :disabled="!nextTicketFor()"
+                                title="Panggil Peserta Berikutnya"
+                                aria-label="Panggil nomor berikutnya antrean Global"
+                                data-testid="next-global"
+                            >NEXT</button>
+                        </form>
+                    </div>
 
-                    <button
-                        type="button"
-                        class="btn col-span-2 min-h-12 w-full border-0 bg-slate-800 text-white hover:bg-slate-700 sm:col-span-1"
-                        @click="openGoto()"
-                        aria-label="Buka Goto Nomor jalur Global"
-                        data-testid="goto-global"
-                    >GOTO PESERTA</button>
+                    <div class="group relative col-span-2 w-full sm:col-span-1">
+                        <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-max max-w-48 -translate-x-1/2 rounded-lg bg-slate-950 px-3 py-2 text-center text-xs font-bold text-white shadow-lg sm:group-focus-within:block sm:group-hover:block">Pilih Peserta</span>
+                        <button
+                            type="button"
+                            class="btn min-h-12 w-full cursor-pointer border-0 bg-slate-800 text-white transition duration-150 hover:-translate-y-0.5 hover:bg-slate-700 hover:shadow-lg"
+                            @click="openGoto()"
+                            title="Pilih Peserta"
+                            aria-label="Buka Goto Nomor jalur Global"
+                            data-testid="goto-global"
+                        >GOTO PESERTA</button>
+                    </div>
                 </div>
             </div>
         @endif
@@ -172,13 +184,13 @@
         <span class="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-black text-slate-700" x-text="activePositions.length"></span>
     </header>
 
-    <p x-show="healthParticipants.length + eligibilityParticipants.length + donatingParticipants.length === 0" class="px-5 py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta dalam proses pelayanan.</p>
+    <p x-show="!hasSecondaryActiveParticipant" class="px-5 py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta lain dalam proses pelayanan.</p>
 
-    <div x-show="healthParticipants.length + eligibilityParticipants.length + donatingParticipants.length > 0" class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-        <section x-show="healthParticipants.length > 0" class="p-4" aria-label="Peserta cek kesehatan">
+    <div x-show="hasSecondaryActiveParticipant" class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        <section x-show="secondaryHealthParticipants.length > 0" class="p-4" aria-label="Peserta cek kesehatan">
             <p class="mb-3 text-sm font-black text-cyan-700">CEK KESEHATAN</p>
             <ol class="space-y-2">
-                <template x-for="participant in healthParticipants" :key="participant.id">
+                <template x-for="participant in secondaryHealthParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-cyan-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
@@ -192,10 +204,10 @@
             </ol>
         </section>
 
-        <section x-show="eligibilityParticipants.length > 0" class="p-4" aria-label="Peserta cek kelayakan donor">
+        <section x-show="secondaryEligibilityParticipants.length > 0" class="p-4" aria-label="Peserta cek kelayakan donor">
             <p class="mb-3 text-sm font-black text-violet-700">Cek Kelayakan Donor</p>
             <ol class="space-y-2">
-                <template x-for="participant in eligibilityParticipants" :key="participant.id">
+                <template x-for="participant in secondaryEligibilityParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-violet-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-violet-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
@@ -210,10 +222,10 @@
             </ol>
         </section>
 
-        <section x-show="donatingParticipants.length > 0" class="p-4" aria-label="Peserta sedang donor">
+        <section x-show="secondaryDonatingParticipants.length > 0" class="p-4" aria-label="Peserta sedang donor">
             <p class="mb-3 text-sm font-black text-rose-700">SEDANG DONOR</p>
             <ol class="space-y-2">
-                <template x-for="participant in donatingParticipants" :key="participant.id">
+                <template x-for="participant in secondaryDonatingParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-rose-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-rose-700" x-text="participant.number"></p>
                         <p class="mt-1 truncate font-extrabold text-slate-900" x-text="participant.participant.name"></p>
