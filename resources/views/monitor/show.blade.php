@@ -39,7 +39,7 @@
                             <p class="mt-3 inline-flex rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-emerald-50 ring-1 ring-white/15">
                                 Donor: <span class="ml-1" x-text="`${queue.donation_capacity.active} / ${queue.donation_capacity.capacity} aktif - ${queue.donation_capacity.available} slot`"></span>
                             </p>
-                            <p class="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-white/50"><span x-text="queue.behavior_label"></span> · Sedang dipanggil</p>
+                            <p class="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-white/50" x-text="queue.current?.status_label ?? queue.behavior_label"></p>
                         </header>
                         <div class="flex flex-1 flex-col items-center justify-center px-5 py-7 text-center">
                             <p class="font-mono text-[clamp(4rem,9vw,8rem)] font-black leading-none tracking-tighter text-white" x-text="queue.current?.number ?? '—'"></p>
@@ -58,18 +58,6 @@
                                 </div>
                             </template>
                         </div>
-                        <section x-show="queue.active_positions.length > 0" x-cloak class="border-t border-white/15 bg-slate-950/15 px-5 py-5">
-                            <p class="text-center text-xs font-bold uppercase tracking-[0.18em] text-white/50">Sedang diproses</p>
-                            <ol class="mt-3 space-y-2">
-                                <template x-for="position in queue.active_positions" :key="position.id">
-                                    <li class="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2 text-left ring-1 ring-white/10">
-                                        <span class="font-mono text-base font-black text-white" x-text="position.number"></span>
-                                        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold text-white" x-text="position.participant_name"></span><span class="block truncate text-xs font-semibold text-emerald-100" x-text="position.services.join(' + ')"></span></span>
-                                        <span class="shrink-0 rounded-full bg-emerald-300/20 px-2.5 py-1 text-xs font-black text-emerald-100" x-text="position.position_label"></span>
-                                    </li>
-                                </template>
-                            </ol>
-                        </section>
                         <div class="border-t border-white/15 bg-slate-950/20 px-5 py-5">
                             <p class="text-center text-xs font-bold uppercase tracking-[0.18em] text-white/50">Antrean berikutnya</p>
                             <div x-show="queue.waiting.length === 0" class="mt-4 text-center text-base font-semibold text-white/60">Tidak ada antrean menunggu</div>

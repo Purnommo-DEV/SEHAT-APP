@@ -76,7 +76,7 @@ class MonitorService
                 ->orderBy('event_participants.id')
                 ->get();
 
-        $activeParticipants = EventParticipant::query()
+        $activeParticipantsQuery = EventParticipant::query()
             ->select([
                 'id',
                 'event_id',
@@ -95,10 +95,28 @@ class MonitorService
             ->with([
                 'participant:id,name,gender',
                 'services:id,event_participant_id,service',
-            ])
-            ->orderBy('registration_order')
-            ->orderBy('checked_in_at')
-            ->orderBy('id')
+            ]);
+
+        if ($waitingPost instanceof ServicePost) {
+            $activeParticipantsQuery->selectSub(
+                QueueTicket::query()
+                    ->select('called_at')
+                    ->whereColumn('queue_tickets.event_participant_id', 'event_participants.id')
+                    ->where('queue_tickets.event_id', $event->id)
+                    ->where('queue_tickets.service_post_id', $waitingPost->id)
+                    ->whereNotNull('queue_tickets.called_at')
+                    ->orderByDesc('queue_tickets.called_at')
+                    ->orderByDesc('queue_tickets.id')
+                    ->limit(1),
+                'last_called_at',
+            );
+        } else {
+            $activeParticipantsQuery->selectRaw('NULL AS last_called_at');
+        }
+
+        $activeParticipants = $activeParticipantsQuery
+            ->orderByDesc('last_called_at')
+            ->orderByDesc('id')
             ->get();
 
         return [
@@ -137,11 +155,9 @@ class MonitorService
         $lane = $tickets->filter(
             fn (QueueTicket $ticket): bool => $ticket->eventParticipant->participant->gender === $gender,
         )->values();
-        $current = $lane->first(fn (QueueTicket $ticket): bool => $ticket->status === QueueTicketStatus::Calling);
         $currentPosition = $activeParticipants
             ->filter(fn (EventParticipant $participant): bool => $participant->participant->gender === $gender)
-            ->sortBy('registration_order')
-            ->first();
+            ->first(fn (EventParticipant $participant): bool => $participant->getAttribute('last_called_at') !== null);
         $waiting = $lane
             ->filter(fn (QueueTicket $ticket): bool => $ticket->status === QueueTicketStatus::Waiting)
             ->sortBy(fn (QueueTicket $ticket): int => $ticket->eventParticipant->registration_order ?? PHP_INT_MAX)
@@ -153,9 +169,9 @@ class MonitorService
             'label' => $gender->label(),
             'behavior' => 'operational_lane',
             'behavior_label' => 'Area Tunggu',
-            'current' => $current instanceof QueueTicket
-                ? $this->ticketSnapshot($current, $settings)
-                : ($currentPosition instanceof EventParticipant ? $this->positionAsCurrent($currentPosition, $settings) : null),
+            'current' => $currentPosition instanceof EventParticipant
+                ? $this->positionAsCurrent($currentPosition, $settings)
+                : null,
             'waiting' => $waiting->map(
                 fn (QueueTicket $ticket): array => $this->ticketSnapshot($ticket, $settings),
             )->values()->all(),
@@ -184,7 +200,7 @@ class MonitorService
             'status' => $ticket->status->value,
             'status_label' => $ticket->status->label(),
             'instruction' => $ticket->status === QueueTicketStatus::Calling
-                ? 'Silakan menuju '.$this->targetLabel($ticket->eventParticipant)
+                ? $this->instructionFor($ticket->eventParticipant)
                 : 'Menunggu panggilan petugas',
         ];
     }
@@ -201,10 +217,8 @@ class MonitorService
             'participant_gender_label' => $participant->participant->gender->label(),
             'service_name' => $this->targetLabel($participant),
             'status' => $participant->status->value,
-            'status_label' => $participant->status === ParticipantStatus::Calling
-                ? 'Sedang Dipanggil'
-                : 'Sedang Diproses',
-            'instruction' => 'Posisi saat ini: '.$participant->status->label(),
+            'status_label' => $participant->status->label(),
+            'instruction' => $this->instructionFor($participant),
         ];
     }
 
@@ -230,11 +244,24 @@ class MonitorService
     private function targetLabel(EventParticipant $participant): string
     {
         return match ($participant->status) {
-            ParticipantStatus::Calling => 'Cek Kesehatan',
+            ParticipantStatus::Calling => $participant->services->contains(
+                fn (EventParticipantService $service): bool => $service->service->value === 'donor',
+            ) ? 'Cek Kelayakan Donor' : 'Cek Kesehatan',
             ParticipantStatus::HealthCheck => 'Cek Kesehatan',
             ParticipantStatus::WaitingScreening => 'Cek Kelayakan Donor',
-            ParticipantStatus::Donating => 'Donor',
+            ParticipantStatus::Donating => 'Sedang Donor',
             default => $participant->status->label(),
+        };
+    }
+
+    private function instructionFor(EventParticipant $participant): string
+    {
+        return match ($participant->status) {
+            ParticipantStatus::Donating => 'Silakan menuju proses donor',
+            ParticipantStatus::Calling,
+            ParticipantStatus::HealthCheck,
+            ParticipantStatus::WaitingScreening => 'Silakan menuju '.$this->targetLabel($participant),
+            default => 'Posisi saat ini: '.$participant->status->label(),
         };
     }
 }

@@ -185,7 +185,11 @@
     </article>
     <article class="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
         <p class="text-xs font-bold uppercase tracking-wide text-rose-700">Sedang Donor</p>
-        <p class="mt-2 text-2xl font-black text-slate-900"><span x-text="capacity?.total?.active ?? 0"></span> / <span x-text="capacity?.total?.capacity ?? 0"></span></p>
+        <p class="mt-2 text-2xl font-black text-slate-900"><span x-text="capacity?.total?.active ?? 0"></span> / <span x-text="capacity?.total?.capacity ?? 0"></span> <span class="text-sm">BED TERISI</span></p>
+        <div class="mt-3 space-y-1.5 text-xs font-bold text-slate-600">
+            <p class="flex items-center justify-between gap-2"><span>Laki-laki</span><span><span x-text="capacityFor('male').active"></span>/<span x-text="capacityFor('male').capacity"></span> bed <strong x-show="capacityFor('male').is_full" x-cloak class="text-rose-700">— PENUH</strong></span></p>
+            <p class="flex items-center justify-between gap-2"><span>Perempuan</span><span><span x-text="capacityFor('female').active"></span>/<span x-text="capacityFor('female').capacity"></span> bed <strong x-show="capacityFor('female').is_full" x-cloak class="text-rose-700">— PENUH</strong></span></p>
+        </div>
     </article>
     <article class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
         <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Selesai</p>
@@ -202,12 +206,11 @@
         <span class="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-black text-slate-700" x-text="activePositions.length"></span>
     </header>
 
-    <p x-show="!hasSecondaryActiveParticipant" class="px-5 py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta lain dalam proses pelayanan.</p>
-
-    <div x-show="hasSecondaryActiveParticipant" class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-        <section x-show="secondaryEligibilityParticipants.length > 0" class="p-4" aria-label="Peserta cek kelayakan donor">
+    <div class="grid divide-y divide-slate-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        <section class="p-4" aria-label="Peserta cek kelayakan donor">
             <p class="mb-3 text-sm font-black text-violet-700">Cek Kelayakan Donor</p>
-            <ol class="space-y-2">
+            <p x-show="secondaryEligibilityParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+            <ol x-show="secondaryEligibilityParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryEligibilityParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-violet-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-violet-700" x-text="participant.number"></p>
@@ -223,9 +226,10 @@
             </ol>
         </section>
 
-        <section x-show="secondaryHealthParticipants.length > 0" class="p-4" aria-label="Peserta cek kesehatan">
+        <section class="p-4" aria-label="Peserta cek kesehatan">
             <p class="mb-3 text-sm font-black text-cyan-700">CEK KESEHATAN</p>
-            <ol class="space-y-2">
+            <p x-show="secondaryHealthParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+            <ol x-show="secondaryHealthParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryHealthParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-cyan-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-cyan-700" x-text="participant.number"></p>
@@ -240,9 +244,10 @@
             </ol>
         </section>
 
-        <section x-show="secondaryDonatingParticipants.length > 0" class="p-4" aria-label="Peserta sedang donor">
+        <section class="p-4" aria-label="Peserta sedang donor">
             <p class="mb-3 text-sm font-black text-rose-700">SEDANG DONOR</p>
-            <ol class="space-y-2">
+            <p x-show="secondaryDonatingParticipants.length === 0" x-cloak class="py-8 text-center text-sm font-semibold text-slate-500">Belum ada peserta</p>
+            <ol x-show="secondaryDonatingParticipants.length > 0" x-cloak class="space-y-2">
                 <template x-for="participant in secondaryDonatingParticipants" :key="participant.id">
                     <li class="rounded-2xl border border-rose-100 p-3" :class="$store.ui.genderCardClass(participant.participant.gender)">
                         <p class="font-mono text-base font-black text-rose-700" x-text="participant.number"></p>

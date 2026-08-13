@@ -1063,12 +1063,6 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
         return this.withoutPrimaryParticipant(this.donatingParticipants);
     },
 
-    get hasSecondaryActiveParticipant() {
-        return this.secondaryHealthParticipants.length > 0
-            || this.secondaryEligibilityParticipants.length > 0
-            || this.secondaryDonatingParticipants.length > 0;
-    },
-
     get currentParticipants() {
         return this.activePositions.filter((participant) => participant.call?.is_active);
     },

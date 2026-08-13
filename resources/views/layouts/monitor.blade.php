@@ -13,5 +13,6 @@
 >
     <span class="sr-only" role="status" aria-live="polite" x-text="label"></span>
     @yield('content')
+    @include('components.manual-reload-button')
 </body>
 </html>

@@ -80,5 +80,7 @@
             </main>
         </div>
     </div>
+
+    @include('components.manual-reload-button')
 </body>
 </html>
