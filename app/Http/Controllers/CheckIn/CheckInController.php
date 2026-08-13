@@ -4,6 +4,7 @@ namespace App\Http\Controllers\CheckIn;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckIn\StoreCheckInRequest;
+use App\Http\Requests\CheckIn\UpdateCheckInServicesRequest;
 use App\Http\Resources\QueueTicketResource;
 use App\Models\Event;
 use App\Models\EventParticipant;
@@ -83,12 +84,41 @@ class CheckInController extends Controller
         return view('check-ins.show', compact('event', 'eventParticipant', 'queueTicket'));
     }
 
+    public function update(
+        UpdateCheckInServicesRequest $request,
+        Event $event,
+        EventParticipant $eventParticipant,
+        CheckInService $checkInService,
+    ): JsonResponse|RedirectResponse {
+        $this->authorize('updateRegistration', $eventParticipant);
+
+        $queueTicket = $checkInService->updateServices(
+            $event,
+            $eventParticipant,
+            $request->user(),
+            $request->serviceTypes(),
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Pilihan layanan peserta berhasil diperbarui.',
+                'data' => (new QueueTicketResource($queueTicket))->resolve($request),
+            ]);
+        }
+
+        return redirect()
+            ->route('events.check-ins.index', $event)
+            ->with('status', 'Pilihan layanan peserta berhasil diperbarui.');
+    }
+
     public function cancel(
         Request $request,
         Event $event,
         EventParticipant $eventParticipant,
         CheckInService $checkInService,
     ): JsonResponse|RedirectResponse {
+        $this->authorize('cancel', $eventParticipant);
+
         $cancelledParticipant = $checkInService->cancel($event, $eventParticipant, $request->user());
         $message = 'Registrasi dibatalkan. Nomor aktif telah dilepas dan dapat digunakan kembali.';
 

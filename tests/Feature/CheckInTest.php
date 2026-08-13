@@ -371,6 +371,131 @@ class CheckInTest extends TestCase
         $this->assertSame('0012', $ticket->formattedNumber());
     }
 
+    public function test_registration_committee_can_update_services_before_operational_work_starts(): void
+    {
+        $administrator = $this->administrator();
+        $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
+        $this->healthPost($event);
+        $this->donorWorkflowPosts($event);
+        $participant = Participant::factory()->create(['gender' => ParticipantGender::Male]);
+
+        $this->actingAs($administrator)
+            ->postJson(route('events.check-ins.store', $event), [
+                'participant_id' => $participant->id,
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])
+            ->assertCreated();
+
+        $eventParticipant = EventParticipant::query()->firstOrFail();
+        $ticket = QueueTicket::query()->firstOrFail();
+
+        $this->actingAs($administrator)
+            ->patchJson(route('events.check-ins.update', [$event, $eventParticipant]), [
+                'services' => [ParticipantServiceType::Donor->value],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $ticket->id)
+            ->assertJsonPath('data.services.0.service', ParticipantServiceType::Donor->value)
+            ->assertJsonPath('data.can_manage_registration', true);
+
+        $this->assertDatabaseCount('event_participants', 1);
+        $this->assertDatabaseHas('event_participants', [
+            'id' => $eventParticipant->id,
+            'status' => ParticipantStatus::Waiting->value,
+            'registration_number' => 1,
+        ]);
+        $this->assertDatabaseHas('queue_tickets', [
+            'id' => $ticket->id,
+            'status' => QueueTicketStatus::Waiting->value,
+            'number' => 1,
+        ]);
+        $this->assertDatabaseHas('event_participant_services', [
+            'event_participant_id' => $eventParticipant->id,
+            'service' => ParticipantServiceType::Donor->value,
+        ]);
+        $this->assertDatabaseMissing('event_participant_services', [
+            'event_participant_id' => $eventParticipant->id,
+            'service' => ParticipantServiceType::HealthCheck->value,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'event_id' => $event->id,
+            'subject_type' => EventParticipant::class,
+            'subject_id' => $eventParticipant->id,
+            'action' => AuditAction::ParticipantServicesUpdated->value,
+        ]);
+    }
+
+    public function test_registration_committee_can_cancel_only_an_unprocessed_check_in_without_deleting_history(): void
+    {
+        $administrator = $this->administrator();
+        $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
+        $this->healthPost($event);
+        $participant = Participant::factory()->create(['gender' => ParticipantGender::Female]);
+
+        $this->actingAs($administrator)
+            ->postJson(route('events.check-ins.store', $event), [
+                'participant_id' => $participant->id,
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])
+            ->assertCreated();
+
+        $eventParticipant = EventParticipant::query()->firstOrFail();
+        $ticket = QueueTicket::query()->firstOrFail();
+
+        $this->actingAs($administrator)
+            ->postJson(route('events.check-ins.cancel', [$event, $eventParticipant]))
+            ->assertOk()
+            ->assertJsonPath('data.id', $eventParticipant->id)
+            ->assertJsonPath('data.status', ParticipantStatus::Cancelled->value);
+
+        $this->assertDatabaseCount('event_participants', 1);
+        $this->assertDatabaseHas('event_participants', [
+            'id' => $eventParticipant->id,
+            'status' => ParticipantStatus::Cancelled->value,
+            'active_registration_number' => null,
+        ]);
+        $this->assertDatabaseHas('queue_tickets', [
+            'id' => $ticket->id,
+            'status' => QueueTicketStatus::Cancelled->value,
+            'active_number' => null,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'event_id' => $event->id,
+            'subject_type' => EventParticipant::class,
+            'subject_id' => $eventParticipant->id,
+            'action' => AuditAction::ParticipantRegistrationCancelled->value,
+        ]);
+    }
+
+    public function test_services_cannot_be_updated_or_cancelled_after_the_participant_is_called(): void
+    {
+        $administrator = $this->administrator();
+        $event = Event::factory()->active()->create(['created_by' => $administrator->id]);
+        $this->healthPost($event);
+        $participant = Participant::factory()->create();
+
+        $this->actingAs($administrator)
+            ->postJson(route('events.check-ins.store', $event), [
+                'participant_id' => $participant->id,
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])
+            ->assertCreated();
+
+        $eventParticipant = EventParticipant::query()->firstOrFail();
+        $ticket = QueueTicket::query()->firstOrFail();
+        $eventParticipant->update(['status' => ParticipantStatus::Calling]);
+        $ticket->update(['status' => QueueTicketStatus::Calling]);
+
+        $this->actingAs($administrator)
+            ->patchJson(route('events.check-ins.update', [$event, $eventParticipant]), [
+                'services' => [ParticipantServiceType::HealthCheck->value],
+            ])
+            ->assertForbidden();
+        $this->actingAs($administrator)
+            ->postJson(route('events.check-ins.cancel', [$event, $eventParticipant]))
+            ->assertForbidden();
+    }
+
     private function healthPost(Event $event): ServicePost
     {
         return ServicePost::factory()->for($event)->create([
@@ -379,6 +504,26 @@ class CheckInTest extends TestCase
             'type' => ServicePostType::Custom,
             'behavior' => ServicePostBehavior::HealthForm,
             'sequence' => 1,
+            'is_active' => true,
+        ]);
+    }
+
+    private function donorWorkflowPosts(Event $event): void
+    {
+        ServicePost::factory()->for($event)->create([
+            'code' => 'eligibility',
+            'name' => 'Cek Kelayakan Donor',
+            'type' => ServicePostType::Custom,
+            'behavior' => ServicePostBehavior::ScreeningForm,
+            'sequence' => 2,
+            'is_active' => true,
+        ]);
+        ServicePost::factory()->for($event)->create([
+            'code' => 'donation',
+            'name' => 'Donor Darah',
+            'type' => ServicePostType::Custom,
+            'behavior' => ServicePostBehavior::DonationForm,
+            'sequence' => 3,
             'is_active' => true,
         ]);
     }

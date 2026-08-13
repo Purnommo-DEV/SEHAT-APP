@@ -274,6 +274,16 @@ class CheckInService
                 ->lockForUpdate()
                 ->get();
 
+            if ($participant->status !== ParticipantStatus::Waiting
+                || $tickets->isEmpty()
+                || $tickets->contains(
+                    fn (QueueTicket $ticket): bool => $ticket->status !== QueueTicketStatus::Waiting,
+                )) {
+                throw ValidationException::withMessages([
+                    'registration' => 'Registrasi hanya dapat dibatalkan sebelum peserta masuk proses operasional.',
+                ]);
+            }
+
             if ($tickets->contains(
                 fn (QueueTicket $ticket): bool => in_array($ticket->status, [
                     QueueTicketStatus::Serving,
@@ -358,6 +368,87 @@ class CheckInService
         }
 
         return $cancelled;
+    }
+
+    /**
+     * @param  list<ParticipantServiceType|string>  $services
+     */
+    public function updateServices(
+        Event $event,
+        EventParticipant $eventParticipant,
+        ?User $actor,
+        array $services,
+    ): QueueTicket {
+        $serviceTypes = $this->normalizeServiceTypes($services);
+
+        /** @var QueueTicket $updatedTicket */
+        $updatedTicket = $this->database->transaction(function () use (
+            $event,
+            $eventParticipant,
+            $actor,
+            $serviceTypes,
+        ): QueueTicket {
+            $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->firstOrFail();
+            $this->ensureActiveEvent($lockedEvent);
+            $participant = EventParticipant::query()
+                ->where('event_id', $lockedEvent->id)
+                ->whereKey($eventParticipant->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $tickets = QueueTicket::query()
+                ->where('event_participant_id', $participant->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($participant->status !== ParticipantStatus::Waiting
+                || $tickets->count() !== 1
+                || $tickets->first()?->status !== QueueTicketStatus::Waiting) {
+                throw ValidationException::withMessages([
+                    'registration' => 'Layanan hanya dapat diubah sebelum peserta masuk proses operasional.',
+                ]);
+            }
+
+            $this->participantServiceWorkflow->registrationRoute($lockedEvent, $serviceTypes, true);
+            $oldServices = $this->selectedServices($participant);
+            $this->syncSelectedServices($participant, $serviceTypes);
+
+            $this->auditLogger->record(
+                actor: $actor,
+                subject: $participant,
+                action: AuditAction::ParticipantServicesUpdated,
+                eventId: $lockedEvent->id,
+                oldValues: [
+                    'services' => array_map(
+                        fn (ParticipantServiceType $serviceType): string => $serviceType->value,
+                        $oldServices,
+                    ),
+                ],
+                newValues: [
+                    'services' => array_map(
+                        fn (ParticipantServiceType $serviceType): string => $serviceType->value,
+                        $serviceTypes,
+                    ),
+                ],
+            );
+
+            $ticket = $tickets->firstOrFail();
+            $ticket->load([
+                'event.settings',
+                'eventParticipant.participant',
+                'eventParticipant.services',
+                'servicePost',
+            ]);
+
+            return $ticket;
+        });
+
+        $this->realtimePublisher->queueChanged(
+            $updatedTicket,
+            AuditAction::ParticipantServicesUpdated,
+        );
+
+        return $updatedTicket;
     }
 
     private function ensureActiveEvent(Event $event): void

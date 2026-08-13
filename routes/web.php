@@ -213,6 +213,7 @@ Route::middleware(['auth', 'throttle:operational'])->group(function (): void {
             ->name('events.check-ins.')
             ->middleware('permission:'.PermissionName::ManageCheckIn->value)
             ->group(function (): void {
+                Route::patch('/{eventParticipant}', [CheckInController::class, 'update'])->name('update');
                 Route::post('/{eventParticipant}/cancel', [CheckInController::class, 'cancel'])->name('cancel');
             });
 

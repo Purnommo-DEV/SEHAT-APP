@@ -239,9 +239,10 @@
                 <ol x-show="tickets.length > 0" x-cloak class="max-h-[35rem] divide-y divide-slate-100 overflow-y-auto">
                     <template x-for="ticket in tickets" :key="ticket.id">
                         <li class="border-l-4" :class="ticket.is_finished ? 'border-slate-200 bg-slate-50 opacity-65 grayscale' : $store.ui.genderCardClass(ticket.participant.gender)">
-                            <a :href="ticket.urls.show" class="flex items-center gap-4 px-4 py-4 transition hover:brightness-[0.98] sm:px-5">
+                            <div class="flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-5">
+                                <a :href="ticket.urls.show" class="flex min-w-0 flex-1 items-center gap-4 transition hover:brightness-[0.98]">
                                 <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl font-mono text-xl font-black shadow-lg" :class="ticket.is_finished ? 'bg-slate-200 text-slate-600' : $store.ui.genderNumberClass(ticket.participant.gender)" x-text="ticket.registration_number"></span>
-                                <span class="min-w-0">
+                                <span class="min-w-0 flex-1">
                                     <span class="block truncate font-bold text-slate-900" x-text="ticket.participant.name"></span>
                                     <span class="mt-1 block truncate text-xs text-slate-500" x-text="ticket.services.map(service => service.label).join(' + ')"></span>
                                     <span x-show="ticket.is_finished" class="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-[0.7rem] font-black text-slate-700">✓ SELESAI</span>
@@ -251,11 +252,71 @@
                                         <span x-text="ticket.participant.gender_label"></span>
                                     </span>
                                 </span>
-                                <svg class="ml-auto size-5 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
-                            </a>
+                                <svg class="size-5 shrink-0 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
+                                </a>
+
+                                <div x-show="ticket.can_manage_registration" x-cloak class="grid shrink-0 gap-2" aria-label="Aksi check-in awal">
+                                    <button type="button" @click="openEditServices(ticket)" class="btn btn-sm min-h-10 border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-400 hover:bg-amber-100">EDIT</button>
+                                    <form :action="ticket.urls.cancel" method="POST" data-realtime-submit data-operation-kind="check-in-cancel" data-confirm-title="Hapus check-in ini?" data-confirm-message="Apakah Anda yakin ingin menghapus peserta ini? Registrasi dibatalkan dan histori tetap tersimpan." data-confirm-variant="warning">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm min-h-10 border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-400 hover:bg-rose-100">HAPUS</button>
+                                    </form>
+                                </div>
+                            </div>
                         </li>
                     </template>
                 </ol>
+            </section>
+        </div>
+
+        <div
+            x-show="editOpen"
+            x-cloak
+            class="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-services-title"
+            @keydown.escape.window="closeEditServices()"
+            @click.self="closeEditServices()"
+        >
+            <section class="w-full rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-7">
+                <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200 sm:hidden"></div>
+                <div class="flex items-start gap-4">
+                    <span class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                        <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Check-in terbaru</p>
+                        <h2 id="edit-services-title" class="mt-1 text-xl font-extrabold text-slate-900">Ubah pilihan layanan</h2>
+                        <p class="mt-1 text-sm leading-6 text-slate-500"><span class="font-bold text-slate-700" x-text="editingTicket?.participant.name"></span> belum masuk proses operasional.</p>
+                    </div>
+                    <button type="button" @click="closeEditServices()" class="btn btn-ghost btn-sm btn-square" aria-label="Tutup">Tutup</button>
+                </div>
+
+                <form :action="editingTicket?.urls.update ?? ''" method="POST" class="mt-6" data-realtime-submit data-operation-kind="check-in-services" @submit="if (editServices.length === 0) { $event.preventDefault(); toastr.error('Pilih minimal satu layanan.'); }">
+                    @csrf
+                    @method('PATCH')
+                    <fieldset>
+                        <legend class="text-sm font-bold text-slate-700">Layanan yang dipilih</legend>
+                        <div class="mt-3 space-y-3">
+                            @foreach (\App\Enums\ParticipantServiceType::cases() as $serviceType)
+                                <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 p-4 transition has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50">
+                                    <input type="checkbox" name="services[]" value="{{ $serviceType->value }}" x-model="editServices" :disabled="! serviceAvailable(@js($serviceType->value))" class="checkbox checkbox-success mt-0.5">
+                                    <span>
+                                        <span class="block font-extrabold text-slate-900">{{ $serviceType->label() }}</span>
+                                        <span class="mt-1 block text-xs leading-5 text-slate-500">{{ $serviceType->description() }}</span>
+                                        <span x-show="! serviceAvailable(@js($serviceType->value))" x-cloak class="mt-1 block text-xs font-bold text-amber-700">Belum tersedia pada event ini.</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </fieldset>
+
+                    <div class="mt-6 grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+                        <button type="button" @click="closeEditServices()" class="btn btn-ghost">Batal</button>
+                        <button type="submit" :disabled="editServices.length === 0" class="btn h-12 border-0 bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-slate-300">Simpan perubahan</button>
+                    </div>
+                </form>
             </section>
         </div>
 

@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\ParticipantStatus;
+use App\Enums\PermissionName;
 use App\Enums\QueueTicketStatus;
 use App\Models\EventParticipantService;
 use App\Models\QueueTicket;
@@ -20,6 +21,9 @@ class QueueTicketResource extends JsonResource
     public function toArray(Request $request): array
     {
         $isSkipped = $this->status === QueueTicketStatus::Skipped;
+        $canManageRegistration = ($request->user()?->can(PermissionName::ManageCheckIn->value) ?? false)
+            && $this->eventParticipant->status === ParticipantStatus::Waiting
+            && $this->status === QueueTicketStatus::Waiting;
 
         return [
             'id' => $this->id,
@@ -37,6 +41,7 @@ class QueueTicketResource extends JsonResource
             'queue_type' => $this->queue_type->value,
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
+            'can_manage_registration' => $canManageRegistration,
             'participant' => [
                 'id' => $this->eventParticipant->participant->id,
                 'name' => $this->eventParticipant->participant->name,
@@ -61,6 +66,8 @@ class QueueTicketResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'urls' => [
                 'show' => route('events.check-ins.show', [$this->event_id, $this->event_participant_id]),
+                'update' => route('events.check-ins.update', [$this->event_id, $this->event_participant_id]),
+                'cancel' => route('events.check-ins.cancel', [$this->event_id, $this->event_participant_id]),
             ],
         ];
     }

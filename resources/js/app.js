@@ -442,6 +442,9 @@ Alpine.data('checkInDesk', (
     searchController: null,
     quickOpen: false,
     quickSubmitting: false,
+    editOpen: false,
+    editingTicket: null,
+    editServices: [],
     pollingTimer: null,
     quickErrors: {},
     quickParticipant: {
@@ -462,6 +465,10 @@ Alpine.data('checkInDesk', (
         window.addEventListener('sehat:operation-completed', ({ detail }) => {
             if (detail?.kind === 'check-in') {
                 this.clear();
+            }
+
+            if (detail?.kind === 'check-in-services') {
+                this.closeEditServices();
             }
 
             this.refreshTickets();
@@ -634,6 +641,22 @@ Alpine.data('checkInDesk', (
         this.quickOpen = false;
         this.quickErrors = {};
         this.$nextTick(() => document.getElementById('participant-search')?.focus());
+    },
+
+    openEditServices(ticket) {
+        if (! ticket.can_manage_registration) {
+            return;
+        }
+
+        this.editingTicket = ticket;
+        this.editServices = ticket.services.map((service) => service.service);
+        this.editOpen = true;
+    },
+
+    closeEditServices() {
+        this.editOpen = false;
+        this.editingTicket = null;
+        this.editServices = [];
     },
 
     async createQuickParticipant() {
@@ -1066,6 +1089,12 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
 
     get upcomingTickets() {
         return this.waitingTickets.slice(0, 3);
+    },
+
+    get skippedTickets() {
+        return this.tickets
+            .filter((ticket) => ticket.status === 'skipped')
+            .sort((first, second) => this.compareRegistrationOrder(first, second));
     },
 
     get currentTicket() {

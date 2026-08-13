@@ -27,22 +27,22 @@ class EventParticipantPolicy
 
     public function cancel(User $user, EventParticipant $eventParticipant): bool
     {
-        if (! $user->can('check-in.manage')
-            || ! in_array($eventParticipant->status, [
-                ParticipantStatus::Registered,
-                ParticipantStatus::WaitingService,
-                ParticipantStatus::WaitingHealth,
-                ParticipantStatus::WaitingScreening,
-            ], true)
-        ) {
+        return $this->canManageInitialCheckIn($user, $eventParticipant);
+    }
+
+    public function updateRegistration(User $user, EventParticipant $eventParticipant): bool
+    {
+        return $this->canManageInitialCheckIn($user, $eventParticipant);
+    }
+
+    private function canManageInitialCheckIn(User $user, EventParticipant $eventParticipant): bool
+    {
+        if (! $user->can('check-in.manage') || $eventParticipant->status !== ParticipantStatus::Waiting) {
             return false;
         }
 
-        return ! $eventParticipant->queueTickets()
-            ->whereIn('status', [
-                QueueTicketStatus::Serving->value,
-                QueueTicketStatus::Finished->value,
-            ])
-            ->exists();
+        return $eventParticipant->queueTickets()
+            ->where('status', '!=', QueueTicketStatus::Waiting->value)
+            ->doesntExist();
     }
 }

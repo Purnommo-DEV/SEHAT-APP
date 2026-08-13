@@ -24,6 +24,7 @@ enum AuditAction: string
     case ParticipantUpdated = 'participant.updated';
     case ParticipantDeleted = 'participant.deleted';
     case ParticipantCheckedIn = 'participant.checked_in';
+    case ParticipantServicesUpdated = 'participant.services_updated';
     case ParticipantRegistrationCancelled = 'participant.registration_cancelled';
     case ParticipantHealthCheckStarted = 'participant.health_check_started';
     case ParticipantEligibilityStarted = 'participant.eligibility_started';
@@ -64,6 +65,7 @@ enum AuditAction: string
             self::ParticipantUpdated => 'Peserta diperbarui',
             self::ParticipantDeleted => 'Peserta dihapus',
             self::ParticipantCheckedIn => 'Peserta check-in',
+            self::ParticipantServicesUpdated => 'Layanan peserta diperbarui',
             self::ParticipantRegistrationCancelled => 'Registrasi peserta dibatalkan',
             self::ParticipantHealthCheckStarted => 'Cek kesehatan dimulai',
             self::ParticipantEligibilityStarted => 'Cek kelayakan donor dimulai',
