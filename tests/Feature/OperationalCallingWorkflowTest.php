@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ParticipantGender;
+use App\Enums\ParticipantServiceStatus;
 use App\Enums\ParticipantServiceType;
 use App\Enums\ParticipantStatus;
 use App\Enums\QueueTicketStatus;
@@ -23,7 +24,7 @@ class OperationalCallingWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_called_donor_only_participant_skips_health_check_and_moves_to_eligibility(): void
+    public function test_called_donor_only_eligible_participant_moves_from_eligibility_to_health_check_then_donor(): void
     {
         [$actor, $event, $healthPost] = $this->workflow();
         $checkIn = app(CheckInService::class);
@@ -49,7 +50,7 @@ class OperationalCallingWorkflowTest extends TestCase
             $this->fail('Peserta donor saja tidak boleh masuk ke Cek Kesehatan.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                ['participant' => ['Peserta yang hanya memilih Donor Darah harus langsung ke tahap Cek Kelayakan Donor.']],
+                ['participant' => ['Peserta donor harus melalui tahap Cek Kelayakan Donor terlebih dahulu.']],
                 $exception->errors(),
             );
         }
@@ -60,6 +61,8 @@ class OperationalCallingWorkflowTest extends TestCase
             'id' => $donorOnly->queueTicket->id,
             'status' => QueueTicketStatus::Cancelled->value,
         ]);
+        $healthCheck = $operations->markEligible($event, $donorOnly->eventParticipant, $actor);
+        $this->assertSame(ParticipantStatus::HealthCheck, $healthCheck->status);
         $operations->startDonation($event, $donorOnly->eventParticipant, $actor);
         $donorTicket = $donorOnly->eventParticipant->queueTickets()->latest('id')->firstOrFail();
         $this->assertSame('L001', $donorTicket->formattedNumber());
@@ -94,7 +97,7 @@ class OperationalCallingWorkflowTest extends TestCase
         $this->assertSame(ParticipantStatus::Finished, $healthOnly->eventParticipant->fresh()->status);
     }
 
-    public function test_called_health_and_donor_participant_must_complete_health_check_before_eligibility(): void
+    public function test_called_health_and_donor_eligible_participant_moves_from_eligibility_to_health_check_then_donor(): void
     {
         [$actor, $event, $healthPost] = $this->workflow();
         $checkIn = app(CheckInService::class);
@@ -110,22 +113,14 @@ class OperationalCallingWorkflowTest extends TestCase
         $queue->call($event, $healthPost, $both->queueTicket, $actor);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
-            ->assertJsonPath('queue.positions.0.call.target_label', 'Cek Kesehatan')
-            ->assertJsonPath('queue.positions.0.can_start_health_check', true)
-            ->assertJsonPath('queue.positions.0.can_start_eligibility', false);
+            ->assertJsonPath('queue.positions.0.call.target_label', 'Cek Kelayakan Donor')
+            ->assertJsonPath('queue.positions.0.can_start_health_check', false)
+            ->assertJsonPath('queue.positions.0.can_start_eligibility', true);
 
-        try {
-            $operations->startEligibility($event, $both->eventParticipant, $actor);
-            $this->fail('Peserta kesehatan dan donor harus menyelesaikan Cek Kesehatan terlebih dahulu.');
-        } catch (ValidationException $exception) {
-            $this->assertSame(
-                ['participant' => ['Peserta yang memilih Pemeriksaan Kesehatan harus menyelesaikan Cek Kesehatan terlebih dahulu.']],
-                $exception->errors(),
-            );
-        }
-
-        $operations->startHealthCheck($event, $both->eventParticipant, $actor);
         $operations->startEligibility($event, $both->eventParticipant, $actor);
+        $this->assertSame(ParticipantStatus::WaitingScreening, $both->eventParticipant->fresh()->status);
+        $operations->markEligible($event, $both->eventParticipant, $actor);
+        $this->assertSame(ParticipantStatus::HealthCheck, $both->eventParticipant->fresh()->status);
         $operations->startDonation($event, $both->eventParticipant, $actor);
         $bothDonorTicket = $both->eventParticipant->queueTickets()->latest('id')->firstOrFail();
         $this->assertSame('L001', $bothDonorTicket->formattedNumber());
@@ -157,6 +152,51 @@ class OperationalCallingWorkflowTest extends TestCase
                 ->where('behavior', ServicePostBehavior::DonationForm->value)
                 ->value('id'),
         ]);
+        $this->getJson(route('events.operations.data', [$event, ParticipantStatus::Finished->value]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $registration->eventParticipant->id)
+            ->assertJsonPath('data.0.eligibility.result', 'not_eligible');
+    }
+
+    public function test_called_health_and_donor_not_eligible_participant_continues_to_health_check_without_entering_donor(): void
+    {
+        [$actor, $event, $healthPost] = $this->workflow();
+        $registration = app(CheckInService::class)->checkIn(
+            $event,
+            Participant::factory()->create(['gender' => ParticipantGender::Female]),
+            $actor,
+            [ParticipantServiceType::Donor, ParticipantServiceType::HealthCheck],
+        );
+        $operations = app(OperationalWorkflowService::class);
+
+        app(ServiceQueueService::class)->call($event, $healthPost, $registration->queueTicket, $actor);
+        $operations->startEligibility($event, $registration->eventParticipant, $actor);
+        $notEligible = $operations->markIneligible($event, $registration->eventParticipant, $actor);
+
+        $this->assertSame(ParticipantStatus::WaitingScreening, $notEligible->status);
+        $this->assertDatabaseHas('event_participant_services', [
+            'event_participant_id' => $registration->eventParticipant->id,
+            'service' => ParticipantServiceType::Donor->value,
+            'status' => ParticipantServiceStatus::NotEligible->value,
+        ]);
+        $this->getJson(route('events.operations.waiting.snapshot', $event))
+            ->assertOk()
+            ->assertJsonPath('queue.positions.0.eligibility.result', 'not_eligible')
+            ->assertJsonPath('queue.positions.0.can_continue_to_health_check', true)
+            ->assertJsonPath('queue.positions.0.can_donate', false);
+
+        $healthCheck = $operations->startHealthCheck($event, $registration->eventParticipant, $actor);
+        $this->assertSame(ParticipantStatus::HealthCheck, $healthCheck->status);
+        $finished = $operations->completeBeforeDonation($event, $registration->eventParticipant, $actor);
+
+        $this->assertSame(ParticipantStatus::Finished, $finished->status);
+        $this->assertDatabaseMissing('queue_tickets', [
+            'event_participant_id' => $registration->eventParticipant->id,
+            'service_post_id' => ServicePost::query()
+                ->where('event_id', $event->id)
+                ->where('behavior', ServicePostBehavior::DonationForm->value)
+                ->value('id'),
+        ]);
     }
 
     public function test_called_participant_remains_visible_after_its_control_ticket_is_closed(): void
@@ -174,18 +214,18 @@ class OperationalCallingWorkflowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
             ->assertJsonPath('queue.positions.0.status', ParticipantStatus::Calling->value)
-            ->assertJsonPath('queue.positions.0.call.target_label', 'Cek Kesehatan')
+            ->assertJsonPath('queue.positions.0.call.target_label', 'Cek Kelayakan Donor')
             ->assertJsonPath('queue.tickets.0.status', QueueTicketStatus::Calling->value);
 
         $operations = app(OperationalWorkflowService::class);
-        $operations->startHealthCheck($event, $registration->eventParticipant, $actor);
+        $operations->startEligibility($event, $registration->eventParticipant, $actor);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
             ->assertJsonCount(0, 'queue.tickets')
             ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
-            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::HealthCheck->value);
+            ->assertJsonPath('queue.positions.0.status', ParticipantStatus::WaitingScreening->value);
 
-        $operations->startEligibility($event, $registration->eventParticipant, $actor);
+        $operations->markEligible($event, $registration->eventParticipant, $actor);
         $operations->startDonation($event, $registration->eventParticipant, $actor);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
@@ -214,6 +254,7 @@ class OperationalCallingWorkflowTest extends TestCase
         $queue->call($event, $healthPost, $first->queueTicket, $actor);
         $operations = app(OperationalWorkflowService::class);
         $operations->startEligibility($event, $first->eventParticipant, $actor);
+        $operations->markEligible($event, $first->eventParticipant, $actor);
         $operations->startDonation($event, $first->eventParticipant, $actor);
         $queue->call($event, $healthPost, $second->queueTicket, $actor);
 

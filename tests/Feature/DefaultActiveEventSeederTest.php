@@ -157,6 +157,9 @@ class DefaultActiveEventSeederTest extends TestCase
         $this->postJson(route('events.operations.eligibility.start', [$event, $eligible]))->assertOk();
         $this->postJson(route('events.operations.eligibility.eligible', [$event, $eligible]))
             ->assertOk()
+            ->assertJsonPath('data.status', ParticipantStatus::HealthCheck->value);
+        $this->postJson(route('events.operations.donating.start', [$event, $eligible]))
+            ->assertOk()
             ->assertJsonPath('data.status', ParticipantStatus::Donating->value);
         $this->postJson(route('events.operations.completed.store', [$event, $eligible]))
             ->assertOk()
@@ -209,6 +212,7 @@ class DefaultActiveEventSeederTest extends TestCase
                 [ParticipantServiceType::Donor],
             );
             $workflow->startEligibility($event, $registration->eventParticipant, $administrator);
+            $workflow->markEligible($event, $registration->eventParticipant, $administrator);
             $registrations[] = $registration;
         }
 
@@ -228,7 +232,7 @@ class DefaultActiveEventSeederTest extends TestCase
         $capacity = app(DonationCapacityService::class)->snapshot($event)->toArray();
         $this->assertSame(4, $capacity['male']['active']);
         $this->assertSame(0, $capacity['male']['available']);
-        $this->assertSame(ParticipantStatus::WaitingScreening, $fifthRegistration->eventParticipant->fresh()->status);
+        $this->assertSame(ParticipantStatus::HealthCheck, $fifthRegistration->eventParticipant->fresh()->status);
 
         $workflow->complete($event, $registrations[0]->eventParticipant, $administrator);
         $workflow->startDonation($event, $fifthRegistration->eventParticipant, $administrator);

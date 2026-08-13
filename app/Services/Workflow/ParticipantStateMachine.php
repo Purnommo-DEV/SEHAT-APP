@@ -41,8 +41,14 @@ class ParticipantStateMachine
                 ParticipantStatus::WaitingScreening,
                 ParticipantStatus::Cancelled,
             ],
-            ParticipantStatus::HealthCheck => [ParticipantStatus::WaitingScreening, ParticipantStatus::Finished, ParticipantStatus::Cancelled],
+            ParticipantStatus::HealthCheck => [
+                ParticipantStatus::WaitingScreening,
+                ParticipantStatus::Donating,
+                ParticipantStatus::Finished,
+                ParticipantStatus::Cancelled,
+            ],
             ParticipantStatus::WaitingScreening => [
+                ParticipantStatus::HealthCheck,
                 ParticipantStatus::Donating,
                 ParticipantStatus::Finished,
                 // Kept for historical workflow records and legacy endpoints;

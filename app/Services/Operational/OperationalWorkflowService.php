@@ -112,18 +112,21 @@ class OperationalWorkflowService
             $lockedParticipant = $this->lockParticipant($lockedEvent, $participant);
             $healthPost = $this->requiredPost($lockedEvent, ServicePostBehavior::HealthForm);
             $oldStatus = $lockedParticipant->status;
-
-            if (! in_array($lockedParticipant->status, [ParticipantStatus::Waiting, ParticipantStatus::Calling], true)) {
-                throw ValidationException::withMessages([
-                    'participant' => "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
-                ]);
-            }
-
             $healthService = $this->selectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
+            $donorService = $this->selectedService($lockedParticipant, ParticipantServiceType::Donor);
+            $fromCalledHealthOnly = in_array($lockedParticipant->status, [
+                ParticipantStatus::Waiting,
+                ParticipantStatus::Calling,
+            ], true) && $healthService instanceof EventParticipantService && ! ($donorService instanceof EventParticipantService);
+            $fromIneligibleDonorAndHealth = $lockedParticipant->status === ParticipantStatus::WaitingScreening
+                && $healthService instanceof EventParticipantService
+                && $donorService?->status === ParticipantServiceStatus::NotEligible;
 
-            if (! ($healthService instanceof EventParticipantService)) {
+            if (! $fromCalledHealthOnly && ! $fromIneligibleDonorAndHealth) {
                 throw ValidationException::withMessages([
-                    'participant' => 'Peserta yang hanya memilih Donor Darah harus langsung ke tahap Cek Kelayakan Donor.',
+                    'participant' => $donorService instanceof EventParticipantService
+                        ? 'Peserta donor harus melalui tahap Cek Kelayakan Donor terlebih dahulu.'
+                        : "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
                 ]);
             }
 
@@ -131,9 +134,11 @@ class OperationalWorkflowService
             $lockedParticipant->current_service_post_id = $healthPost->id;
             $lockedParticipant->save();
 
-            $healthService->status = ParticipantServiceStatus::HealthCheckInProgress;
-            $healthService->started_at ??= now();
-            $healthService->save();
+            if ($healthService instanceof EventParticipantService) {
+                $healthService->status = ParticipantServiceStatus::HealthCheckInProgress;
+                $healthService->started_at ??= now();
+                $healthService->save();
+            }
 
             $this->closeSupersededTickets($lockedParticipant, $actor);
             $this->recordTransition($lockedParticipant, $oldStatus, $actor);
@@ -165,7 +170,13 @@ class OperationalWorkflowService
             $oldStatus = $lockedParticipant->status;
 
             $donorService = $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::Donor);
-            $this->ensureStatus($lockedParticipant, ParticipantStatus::WaitingScreening);
+            $this->ensureStatus($lockedParticipant, ParticipantStatus::HealthCheck);
+
+            if ($donorService->status !== ParticipantServiceStatus::WaitingHealthCheck) {
+                throw ValidationException::withMessages([
+                    'participant' => 'Peserta harus dinyatakan layak donor sebelum masuk proses donor.',
+                ]);
+            }
 
             $lockedParticipant->loadMissing('participant');
             $this->donationCapacity->reserveDonationSlot($activeEvent, $lockedParticipant->participant->gender);
@@ -181,9 +192,8 @@ class OperationalWorkflowService
             $donorTicket->setRelation('servicePost', $donationPost);
 
             $this->stateMachine->transition($lockedParticipant, ParticipantStatus::Donating);
+            $this->completeHealthServiceIfSelected($lockedParticipant);
             $donorService->status = ParticipantServiceStatus::DonationInProgress;
-            $donorService->eligibility_started_at ??= now();
-            $donorService->eligibility_completed_at = now();
             $donorService->started_at ??= now();
             $donorService->save();
             $lockedParticipant->current_service_post_id = $donationPost->id;
@@ -193,7 +203,7 @@ class OperationalWorkflowService
             $this->auditLogger->record(
                 actor: $actor,
                 subject: $lockedParticipant,
-                action: AuditAction::ScreeningEligible,
+                action: AuditAction::ParticipantMovedToDonation,
                 eventId: $activeEvent->id,
                 oldValues: ['status' => $oldStatus->value],
                 newValues: [
@@ -206,11 +216,11 @@ class OperationalWorkflowService
             return $lockedParticipant;
         });
 
-        if (! $donorTicket instanceof QueueTicket) {
+        if (! ($donorTicket instanceof QueueTicket)) {
             throw new \LogicException('Nomor donor tidak berhasil dibuat.');
         }
 
-        $this->realtimePublisher->operationalEligible($updated, $donorTicket);
+        $this->realtimePublisher->operationalDonationStarted($updated, $donorTicket);
 
         return $updated;
     }
@@ -225,26 +235,18 @@ class OperationalWorkflowService
             $oldStatus = $lockedParticipant->status;
 
             $donorService = $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::Donor);
-            $healthService = $this->selectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
-            $fromHealthCheck = $lockedParticipant->status === ParticipantStatus::HealthCheck;
-            $fromCalledDonorOnly = in_array($lockedParticipant->status, [
+            $fromCalledParticipant = in_array($lockedParticipant->status, [
                 ParticipantStatus::Waiting,
                 ParticipantStatus::Calling,
-            ], true) && ! ($healthService instanceof EventParticipantService);
+            ], true);
 
-            if (! $fromHealthCheck && ! $fromCalledDonorOnly) {
+            if (! $fromCalledParticipant) {
                 throw ValidationException::withMessages([
-                    'participant' => $healthService instanceof EventParticipantService
-                        ? 'Peserta yang memilih Pemeriksaan Kesehatan harus menyelesaikan Cek Kesehatan terlebih dahulu.'
-                        : "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
+                    'participant' => "Status peserta sudah berubah menjadi {$lockedParticipant->status->label()}.",
                 ]);
             }
 
-            if ($fromHealthCheck) {
-                $this->completeHealthServiceIfSelected($lockedParticipant);
-            } else {
-                $this->closeSupersededTickets($lockedParticipant, $actor);
-            }
+            $this->closeSupersededTickets($lockedParticipant, $actor);
 
             $this->stateMachine->transition($lockedParticipant, ParticipantStatus::WaitingScreening);
             $donorService->status = ParticipantServiceStatus::WaitingScreening;
@@ -271,6 +273,62 @@ class OperationalWorkflowService
         return $updated;
     }
 
+    public function markEligible(Event $event, EventParticipant $participant, ?User $actor): EventParticipant
+    {
+        /** @var EventParticipant $updated */
+        $updated = $this->database->transaction(function () use ($event, $participant, $actor): EventParticipant {
+            $lockedEvent = $this->lockActiveEvent($event);
+            $lockedParticipant = $this->lockParticipant($lockedEvent, $participant);
+            $healthPost = $this->requiredPost($lockedEvent, ServicePostBehavior::HealthForm);
+            $oldStatus = $lockedParticipant->status;
+
+            $this->ensureStatus($lockedParticipant, ParticipantStatus::WaitingScreening);
+            $donorService = $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::Donor);
+
+            if ($donorService->status !== ParticipantServiceStatus::WaitingScreening) {
+                throw ValidationException::withMessages([
+                    'participant' => 'Hasil Cek Kelayakan Donor peserta ini sudah ditentukan.',
+                ]);
+            }
+
+            $donorService->eligibility_started_at ??= now();
+            $donorService->eligibility_completed_at = now();
+            $donorService->status = ParticipantServiceStatus::WaitingHealthCheck;
+            $donorService->save();
+
+            $this->stateMachine->transition($lockedParticipant, ParticipantStatus::HealthCheck);
+            $lockedParticipant->current_service_post_id = $healthPost->id;
+            $lockedParticipant->save();
+
+            $healthService = $this->selectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
+
+            if ($healthService instanceof EventParticipantService) {
+                $healthService->status = ParticipantServiceStatus::HealthCheckInProgress;
+                $healthService->started_at ??= now();
+                $healthService->save();
+            }
+
+            $this->recordTransition($lockedParticipant, $oldStatus, $actor);
+            $this->auditLogger->record(
+                actor: $actor,
+                subject: $lockedParticipant,
+                action: AuditAction::ScreeningEligible,
+                eventId: $lockedEvent->id,
+                oldValues: ['status' => $oldStatus->value],
+                newValues: [
+                    ...$this->participantSnapshot($lockedParticipant),
+                    'eligibility_result' => 'eligible',
+                ],
+            );
+
+            return $lockedParticipant;
+        });
+
+        $this->realtimePublisher->operationalEligible($updated, null, $updated->current_service_post_id);
+
+        return $updated;
+    }
+
     public function markIneligible(Event $event, EventParticipant $participant, ?User $actor): EventParticipant
     {
         /** @var EventParticipant $updated */
@@ -281,25 +339,38 @@ class OperationalWorkflowService
 
             $this->ensureStatus($lockedParticipant, ParticipantStatus::WaitingScreening);
             $donorService = $this->requiredSelectedService($lockedParticipant, ParticipantServiceType::Donor);
+            $healthService = $this->selectedService($lockedParticipant, ParticipantServiceType::HealthCheck);
+
+            if ($donorService->status !== ParticipantServiceStatus::WaitingScreening) {
+                throw ValidationException::withMessages([
+                    'participant' => 'Hasil Cek Kelayakan Donor peserta ini sudah ditentukan.',
+                ]);
+            }
+
             $donorService->eligibility_started_at ??= now();
             $donorService->eligibility_completed_at = now();
             $donorService->completed_at = now();
             $donorService->status = ParticipantServiceStatus::NotEligible;
             $donorService->save();
-            $this->completeHealthServiceIfSelected($lockedParticipant);
-            $this->stateMachine->transition($lockedParticipant, ParticipantStatus::Finished);
-            $lockedParticipant->current_service_post_id = null;
-            $lockedParticipant->completed_at = now();
-            $lockedParticipant->save();
 
-            $this->recordTransition($lockedParticipant, $oldStatus, $actor);
+            if (! ($healthService instanceof EventParticipantService)) {
+                $this->stateMachine->transition($lockedParticipant, ParticipantStatus::Finished);
+                $lockedParticipant->current_service_post_id = null;
+                $lockedParticipant->completed_at = now();
+                $lockedParticipant->save();
+                $this->recordTransition($lockedParticipant, $oldStatus, $actor);
+            }
+
             $this->auditLogger->record(
                 actor: $actor,
                 subject: $lockedParticipant,
                 action: AuditAction::ScreeningNotEligible,
                 eventId: $lockedEvent->id,
                 oldValues: ['status' => $oldStatus->value],
-                newValues: $this->participantSnapshot($lockedParticipant),
+                newValues: [
+                    ...$this->participantSnapshot($lockedParticipant),
+                    'eligibility_result' => 'not_eligible',
+                ],
             );
 
             return $lockedParticipant;
@@ -375,9 +446,11 @@ class OperationalWorkflowService
             $oldStatus = $lockedParticipant->status;
 
             $this->ensureStatus($lockedParticipant, ParticipantStatus::HealthCheck);
-            if ($this->selectedService($lockedParticipant, ParticipantServiceType::Donor) instanceof EventParticipantService) {
+            $donorService = $this->selectedService($lockedParticipant, ParticipantServiceType::Donor);
+
+            if ($donorService instanceof EventParticipantService && $donorService->status !== ParticipantServiceStatus::NotEligible) {
                 throw ValidationException::withMessages([
-                    'participant' => 'Peserta donor harus melalui tahap Cek Kelayakan Donor.',
+                    'participant' => 'Peserta donor yang layak harus melanjutkan ke proses donor.',
                 ]);
             }
             $this->completeHealthServiceIfSelected($lockedParticipant);

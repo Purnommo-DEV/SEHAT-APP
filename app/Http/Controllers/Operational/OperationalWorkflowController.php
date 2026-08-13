@@ -142,9 +142,9 @@ class OperationalWorkflowController extends Controller
         EventParticipant $eventParticipant,
         OperationalWorkflowService $workflow,
     ): JsonResponse|RedirectResponse {
-        $participant = $workflow->startDonation($event, $eventParticipant, $request->user());
+        $participant = $workflow->markEligible($event, $eventParticipant, $request->user());
 
-        return $this->actionResponse($request, $participant, 'Peserta dinyatakan layak dan masuk proses donor.');
+        return $this->actionResponse($request, $participant, 'Peserta dinyatakan layak dan lanjut ke Cek Kesehatan.');
     }
 
     public function markIneligible(
@@ -155,7 +155,7 @@ class OperationalWorkflowController extends Controller
     ): JsonResponse|RedirectResponse {
         $participant = $workflow->markIneligible($event, $eventParticipant, $request->user());
 
-        return $this->actionResponse($request, $participant, 'Donor dibatalkan. Peserta telah selesai tanpa mengambil kapasitas donor.');
+        return $this->actionResponse($request, $participant, 'Hasil Cek Kelayakan Donor telah disimpan.');
     }
 
     public function complete(

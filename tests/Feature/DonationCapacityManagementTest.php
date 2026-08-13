@@ -119,6 +119,7 @@ class DonationCapacityManagementTest extends TestCase
                 [ParticipantServiceType::Donor],
             );
             $workflow->startEligibility($event, $registration->eventParticipant, $actor);
+            $workflow->markEligible($event, $registration->eventParticipant, $actor);
             $workflow->startDonation($event, $registration->eventParticipant, $actor);
         }
 

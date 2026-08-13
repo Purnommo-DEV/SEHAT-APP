@@ -55,6 +55,7 @@ class EventQueueResetTest extends TestCase
         );
         $workflow = app(OperationalWorkflowService::class);
         $workflow->startEligibility($event, $registration->eventParticipant, $actor);
+        $workflow->markEligible($event, $registration->eventParticipant, $actor);
         $workflow->startDonation($event, $registration->eventParticipant, $actor);
 
         HealthAssessment::factory()->create([
@@ -111,7 +112,7 @@ class EventQueueResetTest extends TestCase
             'old_values->active_donors' => 1,
             'new_values->queue_tickets_deleted' => 2,
             'new_values->event_participants_deleted' => 1,
-            'new_values->status_histories_deleted' => 3,
+            'new_values->status_histories_deleted' => 4,
             'new_values->active_donors_at_reset' => 1,
         ]);
 
@@ -135,6 +136,7 @@ class EventQueueResetTest extends TestCase
         );
         $this->assertSame(1, $nextRegistration->eventParticipant->registration_number);
         $workflow->startEligibility($event->fresh(), $nextRegistration->eventParticipant, $actor);
+        $workflow->markEligible($event->fresh(), $nextRegistration->eventParticipant, $actor);
         $workflow->startDonation($event->fresh(), $nextRegistration->eventParticipant, $actor);
         $donorTicket = QueueTicket::query()
             ->where('event_participant_id', $nextRegistration->eventParticipant->id)

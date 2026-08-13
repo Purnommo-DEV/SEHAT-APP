@@ -234,27 +234,40 @@ class WorkflowRealtimePublisher
         );
     }
 
-    public function operationalEligible(EventParticipant $participant, QueueTicket $ticket): void
-    {
+    public function operationalEligible(
+        EventParticipant $participant,
+        ?QueueTicket $ticket = null,
+        ?int $nextServicePostId = null,
+    ): void {
         ParticipantEligible::dispatch(
             $participant->event_id,
             $participant->id,
-            $ticket->id,
-            $ticket->service_post_id,
+            $ticket?->id,
+            $nextServicePostId ?? $ticket?->service_post_id,
         );
-        ParticipantMovedToDonation::dispatch(
-            $participant->event_id,
-            $participant->id,
-            $ticket->id,
-            $ticket->service_post_id,
-        );
+
+        if ($ticket instanceof QueueTicket) {
+            ParticipantMovedToDonation::dispatch(
+                $participant->event_id,
+                $participant->id,
+                $ticket->id,
+                $ticket->service_post_id,
+            );
+        } elseif ($nextServicePostId !== null) {
+            ParticipantMovedToHealthCheck::dispatch(
+                $participant->event_id,
+                $participant->id,
+                null,
+                $nextServicePostId,
+            );
+        }
 
         $this->queueStateChanged(
             $participant->event_id,
             AuditAction::ScreeningEligible,
             $participant->id,
-            $ticket->id,
-            $ticket->service_post_id,
+            $ticket?->id,
+            $nextServicePostId ?? $ticket?->service_post_id,
         );
     }
 

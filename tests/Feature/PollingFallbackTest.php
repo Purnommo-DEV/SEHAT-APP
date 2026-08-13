@@ -88,18 +88,18 @@ class PollingFallbackTest extends TestCase
         $this->postJson(route('events.service-queues.call', [$event, $healthPost, $registration->queueTicket]))
             ->assertOk()
             ->assertJsonPath('data.status', 'calling');
-        $this->postJson(route('events.operations.health-check.start', [$event, $registration->eventParticipant]))
+        $this->postJson(route('events.operations.eligibility.start', [$event, $registration->eventParticipant]))
             ->assertOk()
-            ->assertJsonPath('data.status', ParticipantStatus::HealthCheck->value);
+            ->assertJsonPath('data.status', ParticipantStatus::WaitingScreening->value);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
             ->assertOk()
             ->assertJsonCount(0, 'queue.tickets')
             ->assertJsonPath('queue.positions.0.id', $registration->eventParticipant->id)
-            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::HealthCheck->value);
+            ->assertJsonPath('queue.positions.0.position.value', ParticipantStatus::WaitingScreening->value);
         $this->getJson(route('events.operations.data', [$event, ParticipantStatus::Waiting->value]))
             ->assertOk()
             ->assertJsonCount(0, 'data');
-        $this->getJson(route('events.operations.data', [$event, ParticipantStatus::HealthCheck->value]))
+        $this->getJson(route('events.operations.data', [$event, ParticipantStatus::WaitingScreening->value]))
             ->assertOk()
             ->assertJsonPath('data.0.id', $registration->eventParticipant->id)
             ->assertJsonPath('meta.donation_capacity.male.capacity', 4)
@@ -107,10 +107,10 @@ class PollingFallbackTest extends TestCase
             ->assertJsonPath('meta.donation_capacity.male.available', 4)
             ->assertJsonPath('meta.donation_capacity.female.capacity', 4);
 
-        $this->postJson(route('events.operations.eligibility.start', [$event, $registration->eventParticipant]))
-            ->assertOk()
-            ->assertJsonPath('data.status', ParticipantStatus::WaitingScreening->value);
         $this->postJson(route('events.operations.eligibility.eligible', [$event, $registration->eventParticipant]))
+            ->assertOk()
+            ->assertJsonPath('data.status', ParticipantStatus::HealthCheck->value);
+        $this->postJson(route('events.operations.donating.start', [$event, $registration->eventParticipant]))
             ->assertOk()
             ->assertJsonPath('data.status', ParticipantStatus::Donating->value);
         $this->getJson(route('events.operations.waiting.snapshot', $event))
