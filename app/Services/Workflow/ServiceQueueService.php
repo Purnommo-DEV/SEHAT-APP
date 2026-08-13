@@ -20,6 +20,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Queue\QueueNumberGenerator;
 use App\Services\Realtime\WorkflowRealtimePublisher;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -42,53 +43,16 @@ class ServiceQueueService
      */
     public function ticketsForPost(Event $event, ServicePost $servicePost): Collection
     {
-        $relations = [
-            'event:id',
-            'event.settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits',
-            'eventParticipant:id,event_id,participant_id,registration_number,registration_order,status',
-            'eventParticipant.participant:id,name,phone,gender',
-            'eventParticipant.services:id,event_participant_id,service',
-            'calledBy:id,name',
-        ];
-        $ticketColumns = [
-            'queue_tickets.id',
-            'queue_tickets.event_id',
-            'queue_tickets.event_participant_id',
-            'queue_tickets.service_post_id',
-            'queue_tickets.queue_type',
-            'queue_tickets.number',
-            'queue_tickets.status',
-            'queue_tickets.called_at',
-            'queue_tickets.served_at',
-            'queue_tickets.skipped_at',
-            'queue_tickets.finished_at',
-            'queue_tickets.called_by',
-        ];
-
-        $active = QueueTicket::query()
-            ->select($ticketColumns)
-            ->join('event_participants', 'event_participants.id', '=', 'queue_tickets.event_participant_id')
-            ->where('queue_tickets.event_id', $event->id)
-            ->where('queue_tickets.service_post_id', $servicePost->id)
-            ->whereNotIn('queue_tickets.status', [
-                QueueTicketStatus::Finished->value,
-                QueueTicketStatus::Cancelled->value,
-            ])
-            ->with($relations)
-            ->orderByRaw("case queue_tickets.status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
-            ->orderBy('event_participants.registration_order')
-            ->orderBy('event_participants.checked_in_at')
-            ->orderBy('event_participants.id')
-            ->get();
+        $active = $this->activeTicketsQuery($event, $servicePost)->get();
         $finished = QueueTicket::query()
-            ->select($ticketColumns)
+            ->select($this->ticketColumns())
             ->where('event_id', $event->id)
             ->where('service_post_id', $servicePost->id)
             ->whereIn('status', [
                 QueueTicketStatus::Finished->value,
                 QueueTicketStatus::Cancelled->value,
             ])
-            ->with($relations)
+            ->with($this->ticketRelations())
             ->latest('finished_at')
             ->limit(20)
             ->get();
@@ -104,12 +68,60 @@ class ServiceQueueService
      */
     public function ticketsForWaitingArea(Event $event, ServicePost $servicePost): Collection
     {
-        return $this->ticketsForPost($event, $servicePost)
-            ->reject(fn (QueueTicket $ticket): bool => in_array($ticket->status, [
-                QueueTicketStatus::Finished,
-                QueueTicketStatus::Cancelled,
-            ], true))
-            ->values();
+        return $this->activeTicketsQuery($event, $servicePost)->get();
+    }
+
+    /** @return Builder<QueueTicket> */
+    private function activeTicketsQuery(Event $event, ServicePost $servicePost): Builder
+    {
+        return QueueTicket::query()
+            ->select($this->ticketColumns())
+            ->join('event_participants', 'event_participants.id', '=', 'queue_tickets.event_participant_id')
+            ->where('queue_tickets.event_id', $event->id)
+            ->where('queue_tickets.service_post_id', $servicePost->id)
+            ->whereIn('queue_tickets.status', [
+                QueueTicketStatus::Waiting->value,
+                QueueTicketStatus::Calling->value,
+                QueueTicketStatus::Serving->value,
+                QueueTicketStatus::Skipped->value,
+            ])
+            ->with($this->ticketRelations())
+            ->orderByRaw("case queue_tickets.status when 'calling' then 0 when 'serving' then 1 when 'waiting' then 2 else 3 end")
+            ->orderBy('event_participants.registration_order')
+            ->orderBy('event_participants.checked_in_at')
+            ->orderBy('event_participants.id');
+    }
+
+    /** @return list<string> */
+    private function ticketColumns(): array
+    {
+        return [
+            'queue_tickets.id',
+            'queue_tickets.event_id',
+            'queue_tickets.event_participant_id',
+            'queue_tickets.service_post_id',
+            'queue_tickets.queue_type',
+            'queue_tickets.number',
+            'queue_tickets.status',
+            'queue_tickets.called_at',
+            'queue_tickets.served_at',
+            'queue_tickets.skipped_at',
+            'queue_tickets.finished_at',
+            'queue_tickets.called_by',
+        ];
+    }
+
+    /** @return list<string> */
+    private function ticketRelations(): array
+    {
+        return [
+            'event:id',
+            'event.settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits',
+            'eventParticipant:id,event_id,participant_id,registration_number,registration_order,status',
+            'eventParticipant.participant:id,name,phone,gender',
+            'eventParticipant.services:id,event_participant_id,service',
+            'calledBy:id,name',
+        ];
     }
 
     public function controlPostForWaitingArea(Event $event): ?ServicePost

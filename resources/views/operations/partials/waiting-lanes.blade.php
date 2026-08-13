@@ -159,7 +159,7 @@
     </article>
     <article class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
         <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Selesai</p>
-        <p class="mt-2 text-2xl font-black text-slate-900" x-text="finishedParticipants.length"></p>
+        <p class="mt-2 text-2xl font-black text-slate-900" x-text="finishedCount"></p>
     </article>
 </section>
 
@@ -229,7 +229,7 @@
     <summary class="cursor-pointer list-none px-5 py-4 sm:px-6">
         <span class="flex items-center justify-between gap-3">
             <span><span class="block text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Selesai</span><span class="mt-1 block text-sm font-semibold text-slate-600">Riwayat peserta yang telah menyelesaikan proses.</span></span>
-            <span class="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-black text-emerald-700" x-text="finishedParticipants.length"></span>
+            <span class="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-black text-emerald-700" x-text="finishedCount"></span>
         </span>
     </summary>
     <ol class="divide-y divide-slate-100 border-t border-emerald-100">

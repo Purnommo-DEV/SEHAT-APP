@@ -14,6 +14,7 @@ use App\Services\Operational\OperationalWorkflowService;
 use App\Services\Workflow\ServiceQueueService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class OperationalWorkflowController extends Controller
@@ -220,29 +221,41 @@ class OperationalWorkflowController extends Controller
         DonationCapacityService $donationCapacity,
     ): array {
         $stages = [];
+        $stageParticipants = $workflow->participantsForOperationalScreen($event);
 
-        foreach ($workflow->participantsForOperationalScreen($event) as $status => $participants) {
+        foreach ($stageParticipants as $status => $participants) {
             $stages[$status] = array_values(
                 OperationalParticipantResource::collection($participants)->resolve(),
             );
         }
 
-        $queuePost = $queueService->controlPostForWaitingArea($event);
+        /** @var Collection<int, EventParticipant> $activePositions */
+        $activePositions = collect([
+            ParticipantStatus::Waiting->value,
+            ParticipantStatus::Calling->value,
+            ParticipantStatus::HealthCheck->value,
+            ParticipantStatus::WaitingScreening->value,
+            ParticipantStatus::Donating->value,
+        ])->flatMap(
+            fn (string $status): Collection => $stageParticipants[$status],
+        )->values();
 
         return [
             'stages' => $stages,
+            'finished_count' => $workflow->finishedOperationalParticipantCount($event),
             'donation_capacity' => $donationCapacity->snapshot($event)->toArray(),
-            'queue' => $this->waitingPayload($event, $queueService, $workflow),
+            'queue' => $this->waitingPayload($event, $queueService, $activePositions),
         ];
     }
 
     /**
+     * @param  Collection<int, EventParticipant>  $activePositions
      * @return array{post: array{id: int, name: string}|null, next_url: string, tickets: list<mixed>, positions: list<mixed>}
      */
     private function waitingPayload(
         Event $event,
         ServiceQueueService $queueService,
-        OperationalWorkflowService $workflow,
+        Collection $activePositions,
     ): array {
         $queuePost = $queueService->controlPostForWaitingArea($event);
 
@@ -257,7 +270,7 @@ class OperationalWorkflowController extends Controller
                     $queueService->ticketsForWaitingArea($event, $queuePost),
                 )->resolve()),
             'positions' => array_values(OperationalParticipantResource::collection(
-                $workflow->participantsWithActivePosition($event),
+                $activePositions,
             )->resolve()),
         ];
     }

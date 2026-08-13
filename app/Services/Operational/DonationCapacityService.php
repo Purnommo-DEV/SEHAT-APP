@@ -198,6 +198,16 @@ class DonationCapacityService
 
     private function settingsFor(Event $event): EventSetting
     {
+        if ($event->relationLoaded('settings')) {
+            $loadedSettings = $event->getRelation('settings');
+
+            if ($loadedSettings instanceof EventSetting
+                && array_key_exists('donation_capacity_male', $loadedSettings->getAttributes())
+                && array_key_exists('donation_capacity_female', $loadedSettings->getAttributes())) {
+                return $loadedSettings;
+            }
+        }
+
         /** @var EventSetting $settings */
         $settings = EventSetting::query()
             ->select(['id', 'event_id', 'donation_capacity_male', 'donation_capacity_female'])

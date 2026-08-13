@@ -27,7 +27,7 @@ class MonitorService
         $event = Event::query()
             ->select(['id', 'code', 'name', 'location'])
             ->active()
-            ->with('settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits')
+            ->with('settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits,donation_capacity_male,donation_capacity_female')
             ->first();
 
         if (! $event instanceof Event) {

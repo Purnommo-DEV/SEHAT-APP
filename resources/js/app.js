@@ -97,14 +97,51 @@ const finishRealtimeRefresh = (component, method = 'refresh') => {
 };
 
 const refreshAfterReconnect = (component, method = 'refresh') => {
+    stopPollingRefresh(component);
+
     if (realtimeDriver() === 'polling') {
-        window.clearInterval(component.pollingTimer);
-        component.pollingTimer = window.setInterval(() => component[method](), pollingIntervalMs());
+        const startPolling = () => {
+            window.clearInterval(component.pollingTimer);
+
+            if (document.hidden) {
+                component.pollingTimer = null;
+
+                return;
+            }
+
+            component.pollingTimer = window.setInterval(() => component[method](), pollingIntervalMs());
+        };
+
+        component.pollingVisibilityHandler = () => {
+            if (document.hidden) {
+                window.clearInterval(component.pollingTimer);
+                component.pollingTimer = null;
+
+                return;
+            }
+
+            startPolling();
+            component[method]();
+        };
+        document.addEventListener('visibilitychange', component.pollingVisibilityHandler);
+        startPolling();
 
         return;
     }
 
     window.addEventListener('sehat:realtime-connected', () => component[method]());
+};
+
+const stopPollingRefresh = (component) => {
+    window.clearInterval(component.pollingTimer);
+    component.pollingTimer = null;
+
+    if (! component.pollingVisibilityHandler) {
+        return;
+    }
+
+    document.removeEventListener('visibilitychange', component.pollingVisibilityHandler);
+    component.pollingVisibilityHandler = null;
 };
 
 const refreshAfterOperation = (component, method = 'refresh') => {
@@ -436,7 +473,7 @@ Alpine.data('checkInDesk', (
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     get hasAvailableService() {
@@ -701,7 +738,7 @@ Alpine.data('healthQueue', (initialTickets, dataUrl, eventId) => ({
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     get waitingTickets() {
@@ -778,7 +815,7 @@ Alpine.data('screeningDesk', (initialParticipants, dataUrl, eventId) => ({
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     get waitingParticipants() {
@@ -853,7 +890,7 @@ Alpine.data('donorQueue', (initialTickets, dataUrl, eventId) => ({
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     get waitingTickets() {
@@ -956,7 +993,7 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     get tickets() {
@@ -985,6 +1022,10 @@ Alpine.data('waitingQueue', (initialQueue, dataUrl, eventId, capacityUpdateUrl =
 
     get finishedParticipants() {
         return this.snapshot?.stages?.finished ?? [];
+    },
+
+    get finishedCount() {
+        return this.snapshot?.finished_count ?? this.finishedParticipants.length;
     },
 
     get currentParticipants() {
@@ -1220,7 +1261,7 @@ Alpine.data('operationalStage', (initialParticipants, dataUrl, eventId, initialC
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
     },
 
     async refresh() {
@@ -1307,7 +1348,7 @@ Alpine.data('dashboard', (initialSnapshot, dataUrl) => ({
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
 
         if (this.subscribedEventId) {
             window.Echo?.leave(`events.${this.subscribedEventId}`);
@@ -1406,7 +1447,7 @@ Alpine.data('monitorBoard', (initialSnapshot, dataUrl) => ({
     },
 
     destroy() {
-        window.clearInterval(this.pollingTimer);
+        stopPollingRefresh(this);
 
         if (this.subscribedEventId) {
             window.Echo?.leave(`events.${this.subscribedEventId}`);

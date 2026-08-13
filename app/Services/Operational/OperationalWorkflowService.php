@@ -64,12 +64,21 @@ class OperationalWorkflowService
      */
     public function participantsForOperationalScreen(Event $event): array
     {
-        $participants = $this->operationalParticipantsQuery($event)
+        $activeStatuses = array_filter(
+            ParticipantStatus::operationalStages(),
+            fn (ParticipantStatus $status): bool => $status !== ParticipantStatus::Finished,
+        );
+        $activeParticipants = $this->operationalParticipantsQuery($event)
             ->whereIn('status', array_map(
                 fn (ParticipantStatus $status): string => $status->value,
-                ParticipantStatus::operationalStages(),
+                $activeStatuses,
             ))
             ->get();
+        $finishedParticipants = $this->operationalParticipantsQuery($event)
+            ->where('status', ParticipantStatus::Finished->value)
+            ->limit(30)
+            ->get();
+        $participants = $activeParticipants->merge($finishedParticipants);
 
         return collect(ParticipantStatus::operationalStages())
             ->mapWithKeys(fn (ParticipantStatus $status): array => [
@@ -78,6 +87,14 @@ class OperationalWorkflowService
                     ->values(),
             ])
             ->all();
+    }
+
+    public function finishedOperationalParticipantCount(Event $event): int
+    {
+        return EventParticipant::query()
+            ->where('event_id', $event->id)
+            ->where('status', ParticipantStatus::Finished->value)
+            ->count();
     }
 
     /**

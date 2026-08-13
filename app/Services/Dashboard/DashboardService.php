@@ -33,7 +33,7 @@ class DashboardService
             'location',
             'starts_at',
         ])->active()->with([
-            'settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits',
+            'settings:id,event_id,registration_number_format,registration_queue_prefix,registration_male_prefix,registration_female_prefix,registration_queue_digits,donation_capacity_male,donation_capacity_female',
             'servicePosts' => fn ($query) => $query->where('is_active', true)
                 ->whereIn('behavior', [
                     ServicePostBehavior::HealthForm->value,
@@ -239,44 +239,68 @@ class DashboardService
             ->values();
         $names = [];
 
-        EventParticipant::query()
-            ->select(['id', 'participant_id'])
-            ->whereKey($idsFor(EventParticipant::class))
-            ->with('participant:id,name')
-            ->get()
-            ->each(function (EventParticipant $participant) use (&$names): void {
-                $names[EventParticipant::class.':'.$participant->id] = $participant->participant->name;
-            });
-        QueueTicket::query()
-            ->select(['id', 'event_participant_id'])
-            ->whereKey($idsFor(QueueTicket::class))
-            ->with('eventParticipant:id,participant_id')
-            ->with('eventParticipant.participant:id,name')
-            ->get()
-            ->each(function (QueueTicket $ticket) use (&$names): void {
-                $names[QueueTicket::class.':'.$ticket->id] = $ticket->eventParticipant->participant->name;
-            });
-        Participant::query()
-            ->select(['id', 'name'])
-            ->whereKey($idsFor(Participant::class))
-            ->get()
-            ->each(function (Participant $participant) use (&$names): void {
-                $names[Participant::class.':'.$participant->id] = $participant->name;
-            });
-        ServicePost::query()
-            ->select(['id', 'name'])
-            ->whereKey($idsFor(ServicePost::class))
-            ->get()
-            ->each(function (ServicePost $post) use (&$names): void {
-                $names[ServicePost::class.':'.$post->id] = $post->name;
-            });
-        Event::query()
-            ->select(['id', 'name'])
-            ->whereKey($idsFor(Event::class))
-            ->get()
-            ->each(function (Event $subjectEvent) use (&$names): void {
-                $names[Event::class.':'.$subjectEvent->id] = $subjectEvent->name;
-            });
+        $eventParticipantIds = $idsFor(EventParticipant::class);
+
+        if ($eventParticipantIds->isNotEmpty()) {
+            EventParticipant::query()
+                ->select(['id', 'participant_id'])
+                ->whereKey($eventParticipantIds)
+                ->with('participant:id,name')
+                ->get()
+                ->each(function (EventParticipant $participant) use (&$names): void {
+                    $names[EventParticipant::class.':'.$participant->id] = $participant->participant->name;
+                });
+        }
+
+        $ticketIds = $idsFor(QueueTicket::class);
+
+        if ($ticketIds->isNotEmpty()) {
+            QueueTicket::query()
+                ->select(['id', 'event_participant_id'])
+                ->with('eventParticipant:id,participant_id')
+                ->with('eventParticipant.participant:id,name')
+                ->whereKey($ticketIds)
+                ->get()
+                ->each(function (QueueTicket $ticket) use (&$names): void {
+                    $names[QueueTicket::class.':'.$ticket->id] = $ticket->eventParticipant->participant->name;
+                });
+        }
+
+        $participantIds = $idsFor(Participant::class);
+
+        if ($participantIds->isNotEmpty()) {
+            Participant::query()
+                ->select(['id', 'name'])
+                ->whereKey($participantIds)
+                ->get()
+                ->each(function (Participant $participant) use (&$names): void {
+                    $names[Participant::class.':'.$participant->id] = $participant->name;
+                });
+        }
+
+        $servicePostIds = $idsFor(ServicePost::class);
+
+        if ($servicePostIds->isNotEmpty()) {
+            ServicePost::query()
+                ->select(['id', 'name'])
+                ->whereKey($servicePostIds)
+                ->get()
+                ->each(function (ServicePost $post) use (&$names): void {
+                    $names[ServicePost::class.':'.$post->id] = $post->name;
+                });
+        }
+
+        $eventIds = $idsFor(Event::class);
+
+        if ($eventIds->isNotEmpty()) {
+            Event::query()
+                ->select(['id', 'name'])
+                ->whereKey($eventIds)
+                ->get()
+                ->each(function (Event $subjectEvent) use (&$names): void {
+                    $names[Event::class.':'.$subjectEvent->id] = $subjectEvent->name;
+                });
+        }
 
         return $names;
     }
